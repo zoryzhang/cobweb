@@ -34,11 +34,13 @@ If you install this repo as a Python library to your local PC, it will automatic
 
 *However*, if you fail to have the compiled `cobweb.cpp` when installing this repo as a Python library, or you want to do it manually, here are the *no-brainer* implementation steps:
 
-- First install the [*pybind11*](https://github.com/pybind/pybind11) library with your preferred [method](https://pybind11.readthedocs.io/en/stable/installing.html) if you haven't, and make sure you has some C++ complier in your server. For example, if you are using Mac operating systems (like me), feel free to proceed the following steps with the `c++` complier by default, and I would be using the `c++` compiler as an example in the following - I believe it is of the same format for alternative compilers like `g++`.
+- First install the pybind11 library with your preferred [method](https://pybind11.readthedocs.io/en/stable/installing.html) if you haven't, and make sure you has some C++ complier in your server. For example, if you are using Mac operating systems (like me), feel free to proceed the following steps with the `c++` complier by default, and I would be using the `c++` compiler as an example in the following - I believe it is of the same format for alternative compilers like `g++`.
 
 - Launch the terminal under this repo (where the C++ script `cobweb.cpp` with `BS_thread_pool.hpp`, `cached_string.hpp` and `json.hpp` lies) and enter:
 
+	```
 	c++ -O3 -Wall -shared -std=c++17 -undefined dynamic_lookup $(python3 -m pybind11 --includes) cobweb.cpp -o cobweb$(python3-config --extension-suffix)
+	```
 
 to start compiling. 
 
