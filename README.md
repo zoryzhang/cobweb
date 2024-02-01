@@ -15,6 +15,7 @@ In this repo (and the [AAAI-24 tutotial presentation](https://humanlikelearning.
 The implementation examples for `tabular`, `vision`, and `language` tasks are available in the corresponding folders `./example/tabular(vision, language)` in this repo.
 
 </br>
+_________________
 
 ### Nominal Cobweb Core Implementations (for tabular and language tasks)
 
@@ -155,6 +156,7 @@ with no-brainer.
 
 
 </br>
+_________________
 
 ### Quantitative Cobweb Core Implementations (for vision tasks)
 
@@ -263,6 +265,7 @@ Just like the nominal Cobweb, it can make a label prediction given an instance w
 	You can then return the predicted label by finding the one with the most predicted probability.
 
 </br>
+_________________
 
 ### Main Contributors
 
