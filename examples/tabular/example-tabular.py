@@ -1,5 +1,5 @@
-from cobweb import CobwebTree
-from visualize import visualize
+from cobweb.cobweb import CobwebTree
+from cobweb.visualize import visualize
 from random import shuffle, seed, sample
 import time
 import csv
@@ -70,10 +70,10 @@ for i in tqdm(range(len(instances_te))):
 	disease_pred = sorted([(prob, disease) for (disease, prob) in probs_pred['disease'].items()], reverse=True)[0][1]
 	if disease_pred == diseases_te[i]:
 		n_correct += 1
-	if i <= 20:
-		print("\n")
-		print(diseases_te[i], disease_pred)
-		print(probs_pred['disease'])
+	# if i <= 20:
+	# 	print("\n")
+	# 	print(diseases_te[i], disease_pred)
+	# 	print(probs_pred['disease'])
 	diseases_pred.append(disease_pred)
 
 accuracy = n_correct / len(instances_te)

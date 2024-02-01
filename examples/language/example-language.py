@@ -7,8 +7,8 @@ from tqdm import tqdm
 from multiprocessing import Pool
 from utility import load_texts, story2instances
 
-from cobweb import CobwebTree
-from visualize import visualize
+from cobweb.cobweb import CobwebTree
+from cobweb.visualize import visualize
 
 if __name__ == "__main__":
 

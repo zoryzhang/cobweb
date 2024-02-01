@@ -57,7 +57,7 @@ def load_texts(training_dir, limit=None):
 		texts = [(idx, name, os.path.join(path, name)) for idx, name in enumerate(files[:limit])]
 
 		# Preprocess the text files in parallel
-		with Pools() as pool:
+		with Pool() as pool:
 			outputs = pool.starmap(process_file, texts)
 			for output in outputs:
 				if output is None:

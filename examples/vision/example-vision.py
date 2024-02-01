@@ -2,11 +2,11 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, Subset, ConcatDataset
 from torchvision import datasets, transforms
-from visualize import visualize
+from cobweb.visualize import visualize
 import copy
 import random
 from tqdm import tqdm
-from concept_formation.cobweb_torch import CobwebTorchTree
+from cobweb.cobweb_torch import CobwebTorchTree
 
 
 # Configurations:
@@ -57,7 +57,6 @@ loader_te = get_data_loader(Subset(dataset_te, dataset_indices_te),
 
 """ Initialize and Train Cobweb """
 imgs_tr, labels_tr = next(iter(loader_tr))
-print(imgs_tr.shape[1:])
 tree = CobwebTorchTree(imgs_tr.shape[1:])
 if verbose:
 	print("Start Training.")
