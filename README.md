@@ -2,7 +2,9 @@
 
 In this repo, we introduce the implementation of the concept formation system, ***Cobweb***, and its employment in `tabular`, `vision`, and `language` tasks. 
 
-To install it as a Python library, simply clone or download it to the server you are using and install with the following:
+To install it as a Python library, first install the pybind11 library with your preferred [method](https://pybind11.readthedocs.io/en/stable/installing.html) if you haven't to compile the C++ scripts into Python libraries. Make sure you has some C++ complier in your server.
+
+After that, simply clone or download it to the server you are using and install with the following:
 
 	pip install -e [your-directory]/cobweb
 
