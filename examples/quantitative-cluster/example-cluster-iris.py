@@ -12,8 +12,14 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from cluster import cluster
 
+# Configurations:
 seed = 100
 random.seed(seed)
+n_components = 2  # nbr of dimensions reduced to with PCA. otherwise you cannot visualize them in a plain figure!
+n_split = 5  # the number of splits made. (not necessarily the number of clusters in the output partition)
+assert n_split > 1, "the number of clusters should be greater than 1"
+assert n_split <= 7, "the number of clusters should be less than 8 (in this example)"
+
 
 """ Data loading and preprocessing """
 with open('iris.json', 'r') as file:
@@ -26,22 +32,21 @@ classes = [instance[c] for instance in instances for c in instance if c == 'clas
 instance_tensors = [torch.tensor([instance[k] for k in instance]) for instance in instance_no_class]
 # print(instance_tensors[0].shape)
 
-""" Train the Cobweb tree """
+""" Train and make clustering """
 tree = CobwebTorchTree(instance_tensors[0].shape)
-for instance in instance_tensors:
-	tree.ifit(instance)
-visualize(tree)
+cluster_iter = cluster(tree, instance_tensors, instance_tensors[0].shape, 
+    min_split=1, max_split=n_split)  # An iterable, from n_split=min_splits to max_splits
+if n_split > 1:
+    for i in range(n_split - 1):
+        clusters = next(cluster_iter)  # the one with n_split. You are free to visit the previous case.
 
-clusters = next(cluster(tree, instance_tensors, instance_tensors[0].shape))
-
+# Compute the Rand index
 ari = adjusted_rand_score(clusters, classes)
 
 dv = DictVectorizer(sparse=False)
 iris_X = dv.fit_transform(instance_no_class)
-pca = PCA(n_components=2)
+pca = PCA(n_components=n_components)
 iris_2d_x = pca.fit_transform(iris_X)
-
-# print(clusters)
 
 colors = ['b', 'g', 'r', 'y', 'k', 'c', 'm']
 shapes = ['o', '^', '+']
@@ -55,7 +60,7 @@ for class_idx, class_label in enumerate(class_set):
          classes[i] == class_label]
     plt.scatter(x, y, color=c, marker=shapes[class_idx], label=class_label)
 
-plt.title("COBWEB/4V Iris Clustering (ARI = %0.2f)" % (ari))
+plt.title("Cobweb Iris Clustering (ARI = %0.2f, n_split = %d)" % (ari, n_split))
 plt.xlabel("PCA Dimension 1")
 plt.ylabel("PCA Dimension 2")
 plt.legend(loc=4)

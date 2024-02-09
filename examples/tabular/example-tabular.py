@@ -16,6 +16,8 @@ https://www.kaggle.com/datasets/itachi9604/disease-symptom-description-dataset?s
 
 # Configurations:
 size_tr = 100  # the size of the training set (so the rest data is used for prediction)
+random_seed = 32
+verbose = True
 
 
 # severity = {}
@@ -45,15 +47,18 @@ with open("diagnose.csv", 'r') as fin:
 		instances.append(instance)
 
 # Shuffle the learned instances:
-seed(32)
+seed(random_seed)
 shuffle(instances)
 instances_tr = instances[:size_tr]
 instances_te = instances[size_tr:]
 diseases_te = [list(instance['disease'].keys())[0] for instance in instances_te]
 instances_te = [{k: v for k, v in instance.items() if k != 'disease'} for instance in instances_te]
 
+print(instances_tr[13])
 
 """ Train Cobweb """
+if verbose:
+	print(f"Start training. Train with {size_tr} samples.")
 tree = CobwebTree(0.001, False, 0, True, False)
 for instance in tqdm(instances_tr):
 	tree.ifit(instance)
@@ -61,6 +66,8 @@ visualize(tree)  # a visualization of the trained Cobweb tree
 
 
 """ Evaluation: Cobweb making predictions on the rest data """
+if verbose:
+	print(f"\nStart testing. Test with {len(instances_te)} samples.")
 n_correct = 0
 diseases_pred = []
 for i in tqdm(range(len(instances_te))):
