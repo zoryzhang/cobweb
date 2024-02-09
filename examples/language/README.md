@@ -39,6 +39,7 @@ Like the figure in the following:
 
 Which are the anchor word predicted probability evolutions and the accuracy evolutions summarized every `window_size=100` instances.
 
+To see how Cobweb is implemented, please direct to the `README.md` [here](https://github.com/Teachable-AI-Lab/cobweb).
 
 
 
