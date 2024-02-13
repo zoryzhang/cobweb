@@ -1,13 +1,35 @@
-Run the example script simply by entering
+Here we present an implementation example based on the [Disease Symptom Prediction dataset](https://www.kaggle.com/datasets/itachi9604/disease-symptom-description-dataset?select=dataset.csv) on Kaggle to make diagnosis based on the symptoms people might have.
 
-	python3 example-tabular.py
+	from random import shuffle, seed, sample
+	import time
+	import csv
+	import numpy as np
+	import pandas as pd
+	from copy import copy, deepcopy
+	from tqdm import tqdm
+	from cobweb.cobweb import CobwebTree
+	from cobweb.visualize import visualize
 
-in the terminal/command line here. Here we employ the example [Disease Symptom Prediction dataset](https://www.kaggle.com/datasets/itachi9604/disease-symptom-description-dataset?select=dataset.csv) on Kaggle to make diagnosis based on the symptoms people might have. One example of the data point representation after preprocessing:
+Suppose we have the global variable values:
 
-	{'disease': {'hepatitis-a': 1}, 
-	 'symptom': {'joint_pain': 1, 'vomiting': 1, 'yellowish_skin': 1, 'dark_urine': 1, 'nausea': 1, 'loss_of_appetite': 1, 'abdominal_pain': 1, 'diarrhoea': 1, 'mild_fever': 1, 'yellowing_of_eyes': 1, 'muscle_pain': 1}}
+	size_tr = 100
+	random_seed = 32
+	verbose = True
 
-In the example script, we first transform the tabular data into corresponding dictionary representations, then train Cobweb with a small portion of data, and test it with the remaining data available. With the default global variables defined, you are expected to obtain a test accuracy of 97.51%.
+`size_tr`: the size of the training set (the remaining data is then used for prediction)
+`random_seed`: the random seed
 
-To see how Cobweb is implemented, please direct to the `README.md` [here](https://github.com/Teachable-AI-Lab/cobweb).
+### Data Overview and Preprocessing
+
+A snippet of the dataset is as the following:
+
+Disease | Symptom_1 | Symptom_2 | Symptom_3 | Symptom_4 | Symptom_5 | Symptom_6 | Symptom_7 | Symptom_8 | Symptom_9 | Symptom_10 | Symptom_11 | Symptom_12 | Symptom_13 | Symptom_14 | Symptom_15 | Symptom_16 | Symptom_17 |
+Fungal infection | itching | skin_rash | nodal_skin_eruptions | dischromic _patches | | | | | | | | | | | | |
+Fungal infection | skin_rash | nodal_skin_eruptions | dischromic _patches | | | | | | | | | | | | | |
+Fungal infection | itching | nodal_skin_eruptions | dischromic _patches | | | | | | | | | | | | | |
+Fungal infection | itching | skin_rash | dischromic _patche | | | | | | | | | | | | | |
+Fungal infection | itching | skin_rash | nodal_skin_eruptions | | | | | | | | | | | | | |
+
+
+
 
