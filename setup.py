@@ -4,7 +4,7 @@ from setuptools import setup
 from pybind11.setup_helpers import intree_extensions
 from pybind11.setup_helpers import build_ext
 
-ext_modules = intree_extensions(glob('./*.cpp'))
+ext_modules = intree_extensions(glob('cobweb/*.cpp'))
 
 # Specify the C++ standard for each extension module
 # for module in ext_modules:
