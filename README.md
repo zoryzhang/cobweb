@@ -112,9 +112,9 @@ where `instances` is a list of `inst`s.
 
 #### Predicting
 
-The hierarchical cognitive structure of Cobweb offers its variety of predictions at different concept levels, or even make ensembled predictions with chosen concept nodes. Also, the unity between the "dependent" and "independent" attributes (variables) offers Cobweb the capability of *multi-task* learning and predicting - Cobweb can predict the value of any attribute given an instance. 
+The hierarchical cognitive structure of Cobweb offers its variety of predictions at different concept levels, or even generate  predictions with expanded concept nodes. Also, the unity between the "dependent" and "independent" attributes (variables) offers Cobweb the capability of *multi-task* learning and predicting - Cobweb can predict the value of any attribute given an instance. 
 
-Given an instance `inst` with an unobserved attribute value to predict, we offer several ways of predicting (at different level of concepts, or the resembled prediction from multiple concepts):
+Given an instance `inst` with an unobserved attribute value to predict, we offer several ways of predicting (at different level of concepts, or the combined prediction from multiple expanded concepts):
 
 - To make an attribute-value prediction at a single concept node,
 
@@ -140,9 +140,9 @@ Given an instance `inst` with an unobserved attribute value to predict, we offer
 	```
 	Then for the attribute you are predicting, find the corresponding value with the highest probability.
 
-- To make a resembled prediction with multiple nodes, use
+- To make a combined prediction with multiple expanded nodes, use
 	```
-	CobwebTree.predict_probs_mixture(instance=inst, max_nodes, greedy, missing, obj)
+	CobwebTree.predict_probs(instance=inst, max_nodes, greedy, missing, obj)
 	```
 	where
 	* `max_nodes (int)` is the maximum number of nodes used in making an ensembled prediction.
@@ -224,7 +224,7 @@ To learn a list of instances, you need to iterate with a `for`-loop.
 
 #### Predicting
 
-Just like the nominal Cobweb, it can make a label prediction given an instance with different approaches. Given an instance `inst`, we offer several ways of predicting (at different level of concepts, or the resembled prediction from multiple concepts):
+Just like the nominal Cobweb, it can make a label prediction given an instance with different approaches. Given an instance `inst`, we offer several ways of predicting (at different level of concepts, or the combined prediction from multiple expanded concepts):
 
 - To make a label prediction at a single concept node,
 
@@ -250,7 +250,7 @@ Just like the nominal Cobweb, it can make a label prediction given an instance w
 	It returns the mean Tensor within the concept node `inst_pred` along with the predicted label value `label_pred`.
 
 
-- To make a resembled prediction with multiple nodes, use
+- To make a combined prediction with multiple expanded nodes, use
 
 	```
 	CobwebTorchTree.predict_probs(instance=inst, label=None, greedy=False, max_nodes=float('inf'))

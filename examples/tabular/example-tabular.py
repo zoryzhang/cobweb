@@ -54,7 +54,7 @@ instances_te = instances[size_tr:]
 diseases_te = [list(instance['disease'].keys())[0] for instance in instances_te]
 instances_te = [{k: v for k, v in instance.items() if k != 'disease'} for instance in instances_te]
 
-print(instances_tr[13])
+# print(instances_tr[13])
 
 """ Train Cobweb """
 if verbose:
@@ -64,6 +64,14 @@ for instance in tqdm(instances_tr):
 	tree.ifit(instance)
 visualize(tree)  # a visualization of the trained Cobweb tree
 
+# given some test case:
+# instance = instances_te[0]
+# probs_pred = tree.predict_probs(instance, 50, False, False, 1)
+# disease_pred = sorted([(prob, disease) for (disease, prob) in probs_pred['disease'].items()], reverse=True)[0][1]
+
+# print(probs_pred)
+# print(disease_pred)
+# print(diseases_te[0])
 
 """ Evaluation: Cobweb making predictions on the rest data """
 if verbose:
@@ -72,7 +80,7 @@ n_correct = 0
 diseases_pred = []
 for i in tqdm(range(len(instances_te))):
 	instance = instances_te[i]
-	probs_pred = tree.predict_probs_mixture(instance, 50, False, False, 1)
+	probs_pred = tree.predict_probs(instance, 50, False, False, 1)
 	# probs_pred = tree.categorize(instance).predict_probs()
 	disease_pred = sorted([(prob, disease) for (disease, prob) in probs_pred['disease'].items()], reverse=True)[0][1]
 	if disease_pred == diseases_te[i]:
@@ -86,6 +94,18 @@ for i in tqdm(range(len(instances_te))):
 accuracy = n_correct / len(instances_te)
 print(f"The test accuracy of Cobweb after training {size_tr} samples: {accuracy}")
 
+
+# Predict the symptoms of a disease:
+instance_te_disease = {'disease': {'diabetes-': 1}}
+probs_pred = tree.categorize(instance_te_disease).get_basic_level().predict_probs()
+# probs_pred = tree.predict_probs(instance, 10, False, False, 1)
+symptoms_pred = sorted([(prob, symptom) for (symptom, prob) in probs_pred['symptom'].items()], reverse=True)[:10]
+print(symptoms_pred)
+
+instances_te_reverse = {'symptom': {'vomiting': 1, 'abdominal_pain': 1, 'loss_of_appetite': 1, 'fatigue': 1, 'yellowish_skin': 1, 'nausea': 1, 'high_fever': 1, 'dark_urine': 1}}
+probs_pred = tree.predict_probs(instance, 50, False, False, 1)
+disease_pred = sorted([(prob, disease) for (disease, prob) in probs_pred['disease'].items()], reverse=True)[0][1]
+print(disease_pred)
 
 
 

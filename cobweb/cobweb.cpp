@@ -2283,7 +2283,7 @@ PYBIND11_MODULE(cobweb, m) {
                 py::arg("instance") = std::vector<AV_COUNT_TYPE>(),
                 // py::arg("get_best_concept") = false,
                 py::return_value_policy::reference)
-        .def("predict_probs_mixture", &CobwebTree::predict_probs_mixture)
+        .def("predict_probs", &CobwebTree::predict_probs_mixture)
         .def("clear", &CobwebTree::clear)
         .def("__str__", &CobwebTree::__str__)
         .def("dump_json", &CobwebTree::dump_json)
