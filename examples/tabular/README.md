@@ -21,7 +21,7 @@ Suppose we have the global variable values:
 `size_tr`: the size of the training set (the remaining data is then used for prediction)
 `random_seed`: the random seed
 
-# Data Overview and Preprocessing
+## Data Overview and Preprocessing
 
 A snippet of the dataset is as the following:
 
@@ -65,7 +65,7 @@ After preprocessing, generate the training and testing datasets:
 	diseases_te = [list(instance['disease'].keys())[0] for instance in instances_te]  # the diseases of the test set
 	instances_te = [{k: v for k, v in instance.items() if k != 'disease'} for instance in instances_te]  # the test set (the "disease" attribute is removed from all test instances)
 
-# Train Cobweb
+## Train Cobweb
 
 First initialize the `CobwebTree` object:
 
@@ -76,7 +76,7 @@ Then train it with the training set:
 	for instance in tqdm(instances_tr):
 		tree.ifit(instance)
 
-# Visualization of the Trained Cobweb Tree
+## Visualization of the Trained Cobweb Tree
 
 After training the tree, you can visualize the tree with the following:
 
@@ -90,7 +90,7 @@ to see the concept information of the trained Cobweb tree via a browser (with `c
     <figcaption>The visualization interface of the trained Cobweb tree. You can select the attribute you want to focus on with the `Focus Attributer` tab, and select (zoom in/out) the learned concept by directly clicking the concept/cluster circle. The corresponding attribure-value table (i.e. the stored information of a concept node) is shown on the lower right. </figcaption>
 </figure>
 
-# Predict the Unobeserved Attribute Value of a Given Instance
+## Predict the Unobeserved Attribute Value of a Given Instance
 
 We can then use the trained Cobweb tree to predict the disease one has based on the symptoms the case have:
 
@@ -128,7 +128,7 @@ Expected output:
 
 So we eventually reach an accuracy of about 97.51% with merely 100 training samples.
 
-# Multi-task Learning: Predict the Symptoms of Some Disease
+## Multi-task Learning: Predict the Symptoms of Some Disease
 
 One thing distinguishes Cobweb from many other models/systems is its potential of multi-task learning - since there is no necessary "response/dependent variable" in learning via Cobweb, one can always derive the predictions of the attribute values other than some specific one (in this case, `disease`).
 
