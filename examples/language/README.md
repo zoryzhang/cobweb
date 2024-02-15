@@ -171,7 +171,7 @@ Then do the iterative train-and-test process: After training an instance, test C
 We can then derive a summary result table `cobweb_10_holmes_out.csv`. The first rows are as follows:
 
 | n_training_words  |  n_training_stories | model |  word  |  word_freq  | word_obs_count | vocab_size | pred_word |  prob_word  | correct | story |
-| -----  |  ----- | ----- |  -----  |  -----  | ----- | ----- | ----- |  -----  | ----- | ----- |
+| -----  |  ----- | ----- |  -----  |  -----  | ----- | ----- | ----- |  -----  | ----- | -------------------------------------------- |
 | 0  | 1  | cobweb  | rock  |  102 | 0 |  0  | NONE  |  0  | 0  | far like hero ll ship like sea rock ship hand _ ship like rock rock god man ship hero time sea |
 | 1 |  1  | cobweb | thou  |  184| 0  | 1   |rock  |  0  | 0  | hero ship land son hand ll bring come let ship _ thy god thou take far ll spake heart son fall|
 | 2  | 0   |cobweb | take  |  142| 0  | 2  | thou |   0  | 0  | adam word god come day adam god fall night adam _ eve return cave see fall adam eve adam say eve|
