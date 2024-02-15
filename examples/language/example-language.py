@@ -69,6 +69,37 @@ if __name__ == "__main__":
 	rd.seed(seed)
 	shuffle(instances)
 
+	# print(instances[17])
+
+
+	""" Naive train and test processes """
+
+	# # Generate inststances (only, instead of instance + story_id + anchor_id)
+	# instances = []
+	# with Pool() as pool:
+	# 	processed_stories = pool.starmap(story2instances, [(story, window) for story in stories])
+	# 	for story_idx, story_instances in enumerate(processed_stories):
+	# 		for anchor_idx, instance in story_instances:
+	# 			instances.append(instance)
+	# rd.seed(seed)
+	# shuffle(instances)
+
+	# # Train the Cobweb tree:
+	# tree = CobwebTree(0.000001, False, 0, True, False)
+	# for instance in instances:
+	# 	tree.ifit(instance)
+
+	# # Visualize the concepts
+	# visualize(tree)
+
+	# # Test the Cobweb tree:
+	# instances_no_anchor()
+
+
+
+
+
+
 
 
 	""" Incremental train-test trials of Cobweb.
@@ -95,7 +126,7 @@ if __name__ == "__main__":
 		text += " ".join([w for w in story[max(0, anchor_idx+1):anchor_idx+window+1]])
 
 		instance_no_anchor = {'context': instance['context']}
-		probs_pred = tree.predict_probs_mixture(instance_no_anchor, 100, False, False, 1)
+		probs_pred = tree.predict_probs(instance_no_anchor, 100, False, False, 1)
 		prob_pred = 0
 		anchor_pred = "NONE"
 		if "anchor" in probs_pred and anchor in probs_pred['anchor']:
