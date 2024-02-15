@@ -175,8 +175,6 @@ We can then derive a summary result table `cobweb_10_holmes_out.csv`. The first 
 | 0  | 1  | cobweb  | rock  |  102 | 0 |  0  | NONE  |  0  | 0  | far like hero ll ship like sea rock ship hand _ ship like rock rock god man ship hero time sea |
 | 1 |  1  | cobweb | thou  |  184| 0  | 1   |rock  |  0  | 0  | hero ship land son hand ll bring come let ship _ thy god thou take far ll spake heart son fall|
 | 2  | 0   |cobweb | take  |  142| 0  | 2  | thou |   0  | 0  | adam word god come day adam god fall night adam _ eve return cave see fall adam eve adam say eve|
-|3  | 0  | cobweb  |water  | 131 |0 |  3 |  take   | 0  | 0 |  come man leave garden man bear earth god day return _ sea god adam garden eve near sea water long garden|
-|4  | 1  | cobweb | ll | 425| 0 |  4  | thou |   0  | 0  | ship stand like hand hero come near fall hero forth _ take stand man fall near hand away leave son son|
 
 Here are the descriptions of the result table columns:
 
