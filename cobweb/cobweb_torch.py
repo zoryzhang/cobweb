@@ -14,8 +14,8 @@ import heapq
 
 import torch
 
-from concept_formation.utils import weighted_choice
-from concept_formation.utils import most_likely_choice
+# from concept_formation.utils import weighted_choice
+# from concept_formation.utils import most_likely_choice
 
 
 class CobwebTorchTree(object):

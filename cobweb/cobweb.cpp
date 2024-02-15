@@ -153,6 +153,27 @@ std::string doubleToString(double cnt) {
     return stream.str();
 }
 
+double logsumexp(std::vector<double> arr) {
+    if (arr.size() > 0){
+        double max_val = arr[0];
+        double sum = 0;
+
+        for (auto &v: arr) {
+            if (v > max_val){
+                max_val = v;
+            }
+        }
+
+        for (auto &v: arr) {
+            sum += exp(v - max_val);
+        }
+        return log(sum) + max_val;
+    }
+    else{
+        return 0.0;
+    }
+}
+
 
 
 class CobwebNode {
@@ -188,6 +209,8 @@ class CobwebNode {
                 *best2, double best1Cu);
         std::tuple<double, CobwebNode *, CobwebNode *>
             two_best_children(const AV_COUNT_TYPE &instance);
+        std::vector<double> log_prob_children_given_instance(const AV_COUNT_TYPE &instance);
+        std::vector<double> log_prob_children_given_instance_ext(INSTANCE_TYPE instance);
         std::vector<double> prob_children_given_instance(const AV_COUNT_TYPE &instance);
         std::vector<double> prob_children_given_instance_ext(INSTANCE_TYPE instance);
         double log_prob_instance(const AV_COUNT_TYPE &instance);
@@ -585,6 +608,8 @@ class CobwebTree {
         std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing, int obj){
 
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
+            std::unordered_map<std::string, std::unordered_map<std::string, std::vector<double>>> weighted_pred_probs;
+
             int nodes_expanded = 0;
             double total_weight = 0.0;
 
@@ -596,6 +621,8 @@ class CobwebTree {
                 root_ll_inst = this->root->log_prob_instance(instance);
             }
 
+            std::cout << "root instance ll " << root_ll_inst << std::endl;
+
             auto queue = std::priority_queue<
                 std::tuple<double, double, CobwebNode*>>();
 
@@ -603,13 +630,14 @@ class CobwebTree {
             if (obj == 0){
                 score = 1;
             } else if (obj == 1){
-                score = exp(root_ll_inst);
+                score = root_ll_inst;
             } else if (obj == 2){
                 score = 0.0;
             } else if (obj == 3){
                 score = 0.0;
             }
 
+            std::cout << "root score: " << score << std::endl;
             queue.push(std::make_tuple(score, 0.0, this->root));
 
             while (queue.size() > 0){
@@ -626,9 +654,11 @@ class CobwebTree {
                 auto curr_ll = std::get<1>(node);
                 auto curr = std::get<2>(node);
 
+                /*
                 if (curr_score < 0){
                     curr_score = 0;
                 }
+                */
 
                 total_weight += curr_score;
 
@@ -643,7 +673,8 @@ class CobwebTree {
                 if (nodes_expanded >= max_nodes) break;
 
                 // TODO look at missing in computing prob children given instance
-                std::vector<double> children_probs = curr->prob_children_given_instance(instance);
+                //std::vector<double> children_probs = curr->prob_children_given_instance(instance);
+                std::vector<double> log_children_probs = curr->log_prob_children_given_instance(instance);
 
                 for (size_t i = 0; i < curr->children.size(); ++i) {
                     auto child = curr->children[i];
@@ -653,7 +684,7 @@ class CobwebTree {
                     } else {
                         child_ll_inst = child->log_prob_instance(instance);
                     }
-                    auto child_ll_given_parent = log(children_probs[i]);
+                    auto child_ll_given_parent = log_children_probs[i];
                     auto child_ll = child_ll_given_parent + curr_ll;
 
                     double score = 0;
@@ -668,6 +699,7 @@ class CobwebTree {
                         score = exp(child_ll) * (child_ll_inst - root_ll_inst);
                     }
 
+                    std::cout << "Node score: " << score << ", ll_node: " << child_ll << ", ll_inst: " << child_ll_inst << std::endl;
                     queue.push(std::make_tuple(score, child_ll, child));
                 }
             }
@@ -677,6 +709,7 @@ class CobwebTree {
                     out[attr][val] /= total_weight;
                 }
             }
+            std::cout << "Total Weight: " << total_weight << std::endl;
 
             return out;
         }
@@ -2024,6 +2057,35 @@ inline double CobwebNode::category_utility(){
 
 }
 
+inline std::vector<double> CobwebNode::log_prob_children_given_instance_ext(INSTANCE_TYPE instance){
+    AV_COUNT_TYPE cached_instance;
+    for (auto &[attr, val_map]: instance) {
+        for (auto &[val, cnt]: val_map) {
+            cached_instance[CachedString(attr)][CachedString(val)] = instance.at(attr).at(val);
+        }
+    }
+
+    return this->log_prob_children_given_instance(cached_instance);
+}
+
+inline std::vector<double> CobwebNode::log_prob_children_given_instance(const AV_COUNT_TYPE &instance){
+    std::vector<double> raw_log_probs = std::vector<double>();
+    std::vector<double> norm_log_probs = std::vector<double>();
+
+    for (auto &child: this->children){
+        raw_log_probs.push_back(child->log_prob_class_given_instance(instance, false));
+    }
+
+    double log_p_of_x = logsumexp(raw_log_probs);
+
+    for (auto log_p: raw_log_probs){
+        norm_log_probs.push_back(log_p - log_p_of_x);
+    }
+
+    return norm_log_probs;
+
+}
+
 inline std::vector<double> CobwebNode::prob_children_given_instance_ext(INSTANCE_TYPE instance){
     AV_COUNT_TYPE cached_instance;
     for (auto &[attr, val_map]: instance) {
@@ -2255,6 +2317,7 @@ PYBIND11_MODULE(cobweb, m) {
         .def("log_prob_instance", &CobwebNode::log_prob_instance_ext) 
         .def("log_prob_instance_missing", &CobwebNode::log_prob_instance_missing_ext) 
         .def("prob_children_given_instance", &CobwebNode::prob_children_given_instance_ext)
+        .def("log_prob_children_given_instance", &CobwebNode::log_prob_children_given_instance_ext)
         .def("entropy", &CobwebNode::entropy)
         .def("category_utility", &CobwebNode::category_utility)
         .def("partition_utility", &CobwebNode::partition_utility)
