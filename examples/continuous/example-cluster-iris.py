@@ -3,7 +3,7 @@ import torch
 import copy
 import random
 import json
-
+from tqdm import tqdm
 from cobweb.cobweb_torch import CobwebTorchTree
 from cobweb.visualize import visualize
 from sklearn.metrics import adjusted_rand_score
@@ -31,6 +31,20 @@ classes = [instance[c] for instance in instances for c in instance if c == 'clas
 # Transform the dictionaries into tensors
 instance_tensors = [torch.tensor([instance[k] for k in instance]) for instance in instance_no_class]
 # print(instance_tensors[0].shape)
+
+""" Separate Train and Teset """
+tree = CobwebTorchTree(instance_tensors[0].shape)
+for i in tqdm(range(len(instance_tensors))):
+    tree.ifit(instance_tensors[i], classes[i])
+visualize(tree)
+
+# pred_probs = tree.predict_probs(instance_tensors[15], None, max_nodes=50)
+instance_te = instance_tensors[15]
+pred_label = tree.categorize(instance_te).predict()[1]
+print(pred_label)
+# pred_label = sorted([(pred_probs[l], l) for l in pred_probs], reverse=True)[0][1]
+print(pred_label, classes[15])
+
 
 """ Train and make clustering """
 tree = CobwebTorchTree(instance_tensors[0].shape)
