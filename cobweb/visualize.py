@@ -14,7 +14,7 @@ from shutil import copy
 import webbrowser
 import json
 
-from concept_formation.cobweb import CobwebNode
+from cobweb.cobweb import CobwebNode
 
 
 def _copy_file(filename, target_dir):
@@ -71,6 +71,35 @@ def visualize(tree, dst=None, recreate_html=True):
     :type create_html: bool
     """
     _gen_viz(tree.root.output_json(), dst, recreate_html)
+
+
+# begin Modification 
+# (for saving & loading the tree)    
+def save_tree(tree,id):
+    js_ob = tree.dump_json()
+    #print("js_ob tyep:", type(js_ob))
+    int_str = str(id)
+    filename = 'output_' + int_str + '.js'
+    module_path = dirname(__file__)
+    output_file = join(module_path, 'saved_cobweb_trees', filename)
+    with open(output_file, 'w') as json_file:
+        #json.dump(js_ob, json_file)
+        json_file.write(js_ob)
+
+def load_tree(tree, id):
+    module_path = dirname(__file__)
+    int_str = str(id)
+    filename = 'output_' + int_str + '.js'
+    output_file = join(module_path, 'saved_cobweb_trees', filename)
+    with open(output_file, 'r') as js_file:
+        js_code = js_file.read()
+    # with open(output_file, 'r') as js_file:
+    #     js_code = json.load(js_file)
+    
+    tree.load_json(js_code)
+    #tree.load_json_iterative(js_code)
+    return(tree)
+# end Modification
 
 
 def _trim_leaves(j_ob):
