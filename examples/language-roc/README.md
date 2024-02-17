@@ -16,11 +16,11 @@
 In this example, we use Cobweb to do sentence completions with the [ROCStories Corpora](https://cs.rochester.edu/nlp/rocstories/), which consists of a dozen of 5-sentence stories. To illustrate a simple implementation example, we build a small set of training and test examples. Here is an example 5-sentence story:
 
 > Title: Pop Quiz	
-> The math teacher announced a pop quiz as class began.	
-> While some students complained, he began passing out the quiz.	
-> I took out my pencil and began to work.	
-> About 5 minutes later, I finished.	
-> I stood up feeling confident and turned it in.
+>> The math teacher announced a pop quiz as class began.	
+>> While some students complained, he began passing out the quiz.	
+>> I took out my pencil and began to work.	
+>> About 5 minutes later, I finished.	
+>> I stood up feeling confident and turned it in.
 
 By choosing the six most frequent verbs in the corpora, `had`, `went`, `got`, `wanted`, `took`, and `found`, we select five sentences that contain the respective verb in both training and testing sets (so there are `5 * 6 = 30` sentences in each dataset), and arrange them to the text files `./rocstories-tr.txt` and `./rocstories-te.txt`.
 
