@@ -124,6 +124,6 @@ And, find the accuracy for label predictions:
 	correct = [1 if pred_labels[i] == labels_te[i] else 0 for i in range(len(pred_labels))]
 	accuracy = sum(correct) / len(imgs_te)
 
-The predictions on all test data may takes a couple of minutes, and with the default global variances defined in the script, you should expect to obtain a test accuracy of 80.86% in the end.
+The predictions on all test data may takes a couple of minutes, and with the default global variances defined in the script, you should expect to obtain a test accuracy within the range of 80% to 82%, in the end.
 
 To see how Cobweb/4V is implemented, please direct to the `README.md` [here](https://github.com/Teachable-AI-Lab/cobweb).
