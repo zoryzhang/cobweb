@@ -621,7 +621,7 @@ class CobwebTree {
                 root_ll_inst = this->root->log_prob_instance(instance);
             }
 
-            std::cout << "root instance ll " << root_ll_inst << std::endl;
+            //std::cout << "root instance ll " << root_ll_inst << std::endl;
 
             auto queue = std::priority_queue<
                 std::tuple<double, double, CobwebNode*>>();
@@ -637,7 +637,7 @@ class CobwebTree {
                 score = 0.0;
             }
 
-            std::cout << "root score: " << score << std::endl;
+            //std::cout << "root score: " << score << std::endl;
             queue.push(std::make_tuple(score, 0.0, this->root));
 
             while (queue.size() > 0){
@@ -699,7 +699,7 @@ class CobwebTree {
                         score = exp(child_ll) * (child_ll_inst - root_ll_inst);
                     }
 
-                    std::cout << "Node score: " << score << ", ll_node: " << child_ll << ", ll_inst: " << child_ll_inst << std::endl;
+                    //std::cout << "Node score: " << score << ", ll_node: " << child_ll << ", ll_inst: " << child_ll_inst << std::endl;
                     queue.push(std::make_tuple(score, child_ll, child));
                 }
             }
@@ -709,7 +709,7 @@ class CobwebTree {
                     out[attr][val] /= total_weight;
                 }
             }
-            std::cout << "Total Weight: " << total_weight << std::endl;
+            //std::cout << "Total Weight: " << total_weight << std::endl;
 
             return out;
         }
