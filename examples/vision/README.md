@@ -98,6 +98,10 @@ Then, train the instances:
 		tree.ifit(imgs_tr[i], labels_tr[i].item())
 
 You can visualize the concepts generated in the trained tree:
+
 	#Visualize Cobweb:
 	visualize(tree)
+
+
+ 
 To see how Cobweb/4V is implemented, please direct to the `README.md` [here](https://github.com/Teachable-AI-Lab/cobweb).
