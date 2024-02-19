@@ -152,7 +152,7 @@ Given an instance `inst` with an unobserved attribute value to predict, we offer
 
 To implement the latest revised Cobweb variety, you can make a prediction with
 
-	CobwebTree.predict_probs_mixture(instance=inst, max_nodes=50, greedy=False, missing=False, obj=1)
+	CobwebTree.predict_probs(instance=inst, max_nodes=50, greedy=False, missing=False, obj=1)
 
 with no-brainer.
 
