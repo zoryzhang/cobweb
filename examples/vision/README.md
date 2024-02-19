@@ -102,4 +102,11 @@ You can visualize the concepts generated in the trained tree:
 	#Visualize Cobweb:
 	visualize(tree)
 
+<figure>
+    <img src="./viz_example.png"
+         alt="Visualization of concept formation">
+    <figcaption>
+The visualization interface of the trained Cobweb tree. You can select the attribute you want to focus on with the `Focus Attributer` tab, and select (zoom in/out) the learned concept by directly clicking the concept/cluster circle. The corresponding attribure-value table (i.e. the stored information of a concept node) is shown on the lower right. </figcaption>
+</figure>
+
 To see how Cobweb/4V is implemented, please direct to the `README.md` [here](https://github.com/Teachable-AI-Lab/cobweb).
