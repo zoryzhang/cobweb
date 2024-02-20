@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from cobweb.cobweb import CobwebTree
 from cobweb.visualize import visualize
-import re
+# import re
 import string
 import nltk
 import csv

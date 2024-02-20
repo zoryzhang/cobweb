@@ -7,7 +7,6 @@
 
 	from cobweb.cobweb import CobwebTree
 	from cobweb.visualize import visualize
-	import re
 	import string
 	import nltk
 	import csv
