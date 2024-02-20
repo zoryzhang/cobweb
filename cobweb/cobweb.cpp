@@ -654,11 +654,11 @@ class CobwebTree {
                 auto curr_ll = std::get<1>(node);
                 auto curr = std::get<2>(node);
 
-                /*
+                
                 if (curr_score < 0){
                     curr_score = 0;
                 }
-                */
+                
 
                 total_weight += curr_score;
 
