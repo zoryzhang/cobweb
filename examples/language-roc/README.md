@@ -28,6 +28,7 @@ First define the global variables:
     seed = 123  # random seed for shuffling instances
     rd.seed(seed)
     window = 5  # the size of the context before/after the anchor word
+    verbs = ['had'] * 5 + ['went'] * 5 + ['got'] * 5 + ['wanted'] * 5 + ['took'] * 5 + ['found'] * 5
 
 ## Load and preprocess the text data
 
