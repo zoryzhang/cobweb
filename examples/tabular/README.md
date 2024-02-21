@@ -74,7 +74,7 @@ First initialize the `CobwebTree` object:
 Then train it with the training set:
 
     for instance in tqdm(instances_tr):
-        tree.ifit(instance)
+        ttree.ifit(instance)
 
 ## Visualization of the Trained Cobweb Tree
 
@@ -95,9 +95,9 @@ to see the concept information of the trained Cobweb tree via a browser (with `c
 We can then use the trained Cobweb tree to predict the disease one has based on the symptoms the case have:
 
     # given some test case:
-    instance = instances_te_diseases[0]
+    instance = instances_te[0]
     prob_pred = tree.predict_probs(instance, 50, False, False, 1)
-    disease_pred = sorted([(prob, disease) for (disease, prob) in probs_pred['disease'].items()], reverse=True)[0][1]  # return the disease value having the greatest predicted probability among all possible ones
+    disease_pred = sorted([(prob, disease) for (disease, prob) in prob_pred['disease'].items()], reverse=True)[0][1]  # return the disease value having the greatest predicted probability among all possible ones
 
 You may change maximum number of nodes used in making an ensembled prediction instead of 50 (and theoretically the performance will be better). The output `prob_pred` is as follows:
 
@@ -112,7 +112,7 @@ In this way we can derive the test accuracy of the test set:
 
     n_correct = 0
     diseases_pred = []
-    for i in tqdm(range(len(instances_te_diseases))):
+    for i in tqdm(range(len(instances_te))):
         instance = instances_te[i]
         probs_pred = tree.predict_probs(instance, 50, False, False, 1)
         disease_pred = sorted([(prob, disease) for (disease, prob) in probs_pred['disease'].items()], reverse=True)[0][1]
