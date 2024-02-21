@@ -1,5 +1,9 @@
 In this example, we implement the [Microsoft Research Sentence Completion Challenge](https://www.microsoft.com/en-us/research/project/msr-sentence-completion-challenge/overview/). In particular, we preprocess and train Cobweb with only 2 Holmes stories (in `./data`. You can incorporate more text files from the raw data, though the corresponding training process will take more time), and the stories will be preprocessed by filtering words with less frequencies and then make them into n-grams (anchor + context words) for training and predictions. All the preprocessed grams (instances) will be integrated in the output `holmes_stories.json` as you run the example script. 
 
+Start by installing the necessary spacy language package:
+
+    python -m spacy download en_core_web_sm
+
 If you don't find the compiled Python library of Cobweb from `cobweb.cpp` with `pybind11`, please refer to the `README.md` [here](https://github.com/Teachable-AI-Lab/cobweb/tree/main). 
 
     import os
