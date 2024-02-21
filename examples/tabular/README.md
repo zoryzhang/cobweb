@@ -74,7 +74,7 @@ First initialize the `CobwebTree` object:
 Then train it with the training set:
 
     for instance in tqdm(instances_tr):
-        ttree.ifit(instance)
+        tree.ifit(instance)
 
 ## Visualization of the Trained Cobweb Tree
 
