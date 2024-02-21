@@ -195,7 +195,7 @@ Here are the descriptions of the result table columns:
 
 Further, you can derive the evolved learning curve of Cobweb based on the result table by entering the following in the terminal/command line in the current directory:
 
-	python3 plot_curve.py cobweb_10_holmes_out.csv
+    python3 plot_curve.py cobweb_10_holmes_out.csv
 
 Like the figure in the following:
 
