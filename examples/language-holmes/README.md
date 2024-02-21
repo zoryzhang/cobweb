@@ -94,7 +94,7 @@ First intialize the tree object:
 
 Then use all the instances incrementally:
 
-    for instance in instnces:
+    for instance in instances:
         tree.ifit(instance)
 
 You can have a visualization of the trained tree with the following:
