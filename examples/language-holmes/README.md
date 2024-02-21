@@ -118,11 +118,11 @@ Since Cobweb learns instances incrementally instead of in batches, we can see ho
 We first generate the collection of instances like what we did previously, but we include the additional story and instance indices:
 
     instances = []
-        with Pool() as pool:
-            processed_stories = pool.starmap(story2instances, [(story, window) for story in stories])
-            for story_idx, story_instances in enumerate(processed_stories):
-                for anchor_idx, instance in story_instances:
-                    instances.append((instance, story_idx, anchor_idx))
+    with Pool() as pool:
+        processed_stories = pool.starmap(story2instances, [(story, window) for story in stories])
+        for story_idx, story_instances in enumerate(processed_stories):
+            for anchor_idx, instance in story_instances:
+                instances.append((instance, story_idx, anchor_idx))
     rd.seed(seed)
     shuffle(instances)
 
