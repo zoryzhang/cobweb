@@ -48,6 +48,12 @@ We first create the integrated text from the text files (stories) we use (in `./
 
 You can then see the collection of sparsed tokens of the processed stories in `./holmes_stories.json` - it is  indeed the two collections (lists) of the tokens of the two stories we have.
 
+Next, lets look at the top 100 most frequent word:
+
+    print("\npreview of the 100 most frequent words frequency:")
+	overall_freq = Counter([word for story in stories for word in story])
+	print(overall_freq.most_common(100))
+
 To generate the instances learned by the Cobweb tree, we may filter out the words (tokens) that are not frequent (not emerge more than `least_frequency=100` times in a story) for each story:
 
     stories = [[word for word in story if overall_freq[word] >= least_frequency] for story in stories]
