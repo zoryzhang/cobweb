@@ -99,7 +99,7 @@ We can also visualize the clustering/partition we have here with a 2D figure (so
 
     dv = DictVectorizer(sparse=False)
     iris_X = dv.fit_transform(instance_no_class)
-    pca = PCA(n_components=n_components)
+    pca = PCA(n_components=2)
     iris_2d_x = pca.fit_transform(iris_X)
 
 Then make a scatterplot of the clustering:
