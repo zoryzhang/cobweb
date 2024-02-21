@@ -29,6 +29,7 @@ If an image is used for training, its ground-truth label (digit) is used along w
 
     import numpy as np
     import torch
+    import matplotlib.pyplot as plt
     from torch.utils.data import Dataset, DataLoader, Subset, ConcatDataset
     from torchvision import datasets, transforms
     from cobweb.visualize import visualize
@@ -86,6 +87,11 @@ First, initialize the tree:
 
     imgs_tr, labels_tr = next(iter(loader_tr))
     tree = CobwebTorchTree(imgs_tr.shape[1:])
+
+This code will render one of the images:
+
+    plt.imshow(imgs_tr[0][0])
+    plt.show()
 
 Then, train the instances:
 
