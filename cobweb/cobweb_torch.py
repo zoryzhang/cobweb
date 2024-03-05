@@ -25,14 +25,24 @@ class CobwebTorchTree(object):
     """
 
     def __init__(self, shape, use_mutual_info=True, acuity_cutoff=False,
-                 prior_var=None, alpha=1e-8,
-                 device=None):
+                 use_t_dist=True,
+                 mu0=0, n_mu=0, prec0=1, n_prec=0.01,
+                 prior_var=None, alpha=1e-8, device=None):
         """
         The tree constructor.
         """
         self.device = device
         self.use_mutual_info = use_mutual_info
         self.acuity_cutoff = acuity_cutoff
+        self.use_t_dist = use_t_dist
+        self.mu0 = torch.tensor(mu0, dtype=torch.float, device=self.device,
+                                requires_grad=False)
+        self.n_mu = torch.tensor(n_mu, dtype=torch.float, device=self.device,
+                                 requires_grad=False)
+        self.prec0 = torch.tensor(prec0, dtype=torch.float,
+                                  device=self.device, requires_grad=False)
+        self.n_prec = torch.tensor(n_prec, dtype=torch.float, device=self.device,
+                                  requires_grad=False)
         self.shape = shape
         self.alpha = torch.tensor(alpha, dtype=torch.float, device=self.device,
                                   requires_grad=False)
@@ -63,6 +73,11 @@ class CobwebTorchTree(object):
         tree_params = {
                 'use_mutual_info': self.use_mutual_info,
                 'acuity_cutoff': self.acuity_cutoff,
+                'use_t_dist': self.use_t_dist,
+                'mu0': self.mu0.item(),
+                'n_mu': self.n_mu.item(),
+                'prec0': self.prec0.item(),
+                'n_prec': self.n_prec.item(),
                 'shape': self.shape.tolist() if isinstance(self.shape, torch.Tensor) else self.shape,
                 'alpha': self.alpha.item(),
                 'prior_var': self.prior_var.item(),
@@ -94,6 +109,15 @@ class CobwebTorchTree(object):
         
         self.use_mutual_info = data['use_mutual_info']
         self.acuity_cutoff = data['acuity_cutoff']
+        self.use_t_dist = data['use_t_dist']
+        self.mu0 = torch.tensor(data['mu0'], dtype=torch.float,
+                                  device=self.device, requires_grad=False)
+        self.n_mu = torch.tensor(data['n_mu'], dtype=torch.float,
+                                  device=self.device, requires_grad=False)
+        self.prec0 = torch.tensor(data['prec0'], dtype=torch.float,
+                                  device=self.device, requires_grad=False)
+        self.n_prec = torch.tensor(data['n_prec'], dtype=torch.float,
+                                  device=self.device, requires_grad=False)
         self.shape = data['shape']
         self.alpha = torch.tensor(data['alpha'], dtype=torch.float,
                                   device=self.device, requires_grad=False)
@@ -535,9 +559,23 @@ class CobwebTorchNode(object):
         return log_prob
 
     def log_prob(self, instance, label):
-        var = self.var
-        log_prob = -(0.5 * torch.log(var) + 0.5 * torch.log(2 * self.tree.pi_tensor) +
-                     0.5 * torch.square(instance - self.mean) / var).sum()
+
+        log_prob = 0
+
+        if self.tree.use_t_dist:
+            lam = self.tree.n_mu + self.count
+            alpha = self.tree.n_prec/2 + self.count/2
+            beta = self.meanSq/2 + self.tree.n_prec / (2 * self.tree.prec0) + ((self.tree.n_mu * self.count) / (self.tree.n_mu + self.count)) * (self.mean - self.tree.mu0)**2
+            log_prob += (torch.lgamma(alpha + 0.5) - torch.lgamma(alpha) - 0.5
+                         * torch.log(2 * self.tree.pi_tensor * alpha) + 0.5 *
+                         torch.log(lam * alpha) - 0.5 * torch.log((lam + 1) * beta) -
+                         (alpha + 0.5) * torch.log(1 + (lam / ((lam+1) * alpha * beta)) *
+                                                   torch.square(instance - self.mean))).sum()
+
+        else:
+            var = self.var
+            log_prob += -(0.5 * torch.log(var) + 0.5 * torch.log(2 * self.tree.pi_tensor) +
+                         0.5 * torch.square(instance - self.mean) / var).sum()
 
         self.update_label_count_size()
         if label is not None:
@@ -573,17 +611,29 @@ class CobwebTorchNode(object):
             label_counts[self.tree.labels[label]] += 1
             total_label_count += 1
 
-        if self.tree.acuity_cutoff:
-            var = torch.clamp(meanSq / count, self.tree.prior_var) # with cutoff
-        else:
-            var = meanSq / count + self.tree.prior_var # with adjustment
+        if self.tree.use_t_dist:
+            lam = self.tree.n_mu + count
+            alpha = self.tree.n_prec/2 + count/2
+            beta = meanSq/2 + self.tree.n_prec / (2 * self.tree.prec0) + ((self.tree.n_mu * count) / (self.tree.n_mu + count)) * (mean - self.tree.mu0)**2
+            c = (-(torch.lgamma(alpha + 0.5) - torch.lgamma(alpha) - 0.5 * torch.log(2 * self.tree.pi_tensor * alpha)) + (alpha + 0.5) * (torch.digamma(alpha + 0.5) - torch.digamma(alpha)))
+            score = beta.numel() * c + (0.5 * (torch.log(beta) -
+                                                  torch.log(alpha) +
+                                                  torch.log(lam + 1) -
+                                                  torch.log(lam))).sum()
 
-        std = torch.sqrt(var)
-
-        if (self.tree.use_mutual_info):
-            score = (0.5 * torch.log(2 * self.tree.pi_tensor * var) + 0.5).sum()
         else:
-            score = -(1 / (2 * torch.sqrt(self.tree.pi_tensor) * std)).sum()
+
+            if self.tree.acuity_cutoff:
+                var = torch.clamp(meanSq / count, self.tree.prior_var) # with cutoff
+            else:
+                var = meanSq / count + self.tree.prior_var # with adjustment
+
+            std = torch.sqrt(var)
+
+            if (self.tree.use_mutual_info):
+                score = (0.5 * torch.log(2 * self.tree.pi_tensor * var) + 0.5).sum()
+            else:
+                score = -(1 / (2 * torch.sqrt(self.tree.pi_tensor) * std)).sum()
 
         if self.total_label_count > 0:
             p_label = label_counts / total_label_count
@@ -629,17 +679,29 @@ class CobwebTorchNode(object):
             label_counts[self.tree.labels[label]] += 1
             total_label_count += 1
 
-        if self.tree.acuity_cutoff:
-            var = torch.clamp(meanSq / count, self.tree.prior_var) # with cutoff
-        else:
-            var = meanSq / count + self.tree.prior_var # with adjustment
+        if self.tree.use_t_dist:
+            lam = self.tree.n_mu + count
+            alpha = self.tree.n_prec/2 + count/2
+            beta = meanSq/2 + self.tree.n_prec / (2 * self.tree.prec0) + ((self.tree.n_mu * count) / (self.tree.n_mu + count)) * (mean - self.tree.mu0)**2
+            c = (-(torch.lgamma(alpha + 0.5) - torch.lgamma(alpha) - 0.5 * torch.log(2 * self.tree.pi_tensor * alpha)) + (alpha + 0.5) * (torch.digamma(alpha + 0.5) - torch.digamma(alpha)))
+            score = beta.numel() * c + (0.5 * (torch.log(beta) -
+                                                  torch.log(alpha) +
+                                                  torch.log(lam + 1) -
+                                                  torch.log(lam))).sum()
 
-        std = torch.sqrt(var)
-
-        if (self.tree.use_mutual_info):
-            score = (0.5 * torch.log(2 * self.tree.pi_tensor * var) + 0.5).sum()
         else:
-            score = -(1 / (2 * torch.sqrt(self.tree.pi_tensor) * std)).sum()
+
+            if self.tree.acuity_cutoff:
+                var = torch.clamp(meanSq / count, self.tree.prior_var) # with cutoff
+            else:
+                var = meanSq / count + self.tree.prior_var # with adjustment
+
+            std = torch.sqrt(var)
+
+            if (self.tree.use_mutual_info):
+                score = (0.5 * torch.log(2 * self.tree.pi_tensor * var) + 0.5).sum()
+            else:
+                score = -(1 / (2 * torch.sqrt(self.tree.pi_tensor) * std)).sum()
 
         if self.total_label_count > 0:
             p_label = label_counts / total_label_count
@@ -706,10 +768,22 @@ class CobwebTorchNode(object):
         """
         self.update_label_count_size()
 
-        if (self.tree.use_mutual_info):
-            score = (0.5 * torch.log(2 * self.tree.pi_tensor * self.var) + 0.5).sum()
+        if self.tree.use_t_dist:
+            lam = self.tree.n_mu + self.count
+            alpha = self.tree.n_prec/2 + self.count/2
+            beta = self.meanSq/2 + self.tree.n_prec / (2 * self.tree.prec0) + ((self.tree.n_mu * self.count) / (self.tree.n_mu + self.count)) * (self.mean - self.tree.mu0)**2
+            c = (-(torch.lgamma(alpha + 0.5) - torch.lgamma(alpha) - 0.5 * torch.log(2 * self.tree.pi_tensor * alpha)) + (alpha + 0.5) * (torch.digamma(alpha + 0.5) - torch.digamma(alpha)))
+            score = beta.numel() * c + (0.5 * (torch.log(beta) -
+                                                  torch.log(alpha) +
+                                                  torch.log(lam + 1) -
+                                                  torch.log(lam))).sum()
+
         else:
-            score = -(1 / (2 * torch.sqrt(self.tree.pi_tensor) * self.std)).sum()
+
+            if (self.tree.use_mutual_info):
+                score = (0.5 * torch.log(2 * self.tree.pi_tensor * self.var) + 0.5).sum()
+            else:
+                score = -(1 / (2 * torch.sqrt(self.tree.pi_tensor) * self.std)).sum()
 
         if self.total_label_count > 0:
             p_label = self.label_counts / self.total_label_count
