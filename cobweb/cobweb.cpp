@@ -1122,7 +1122,7 @@ inline std::tuple<double, CobwebNode *, CobwebNode *> CobwebNode::two_best_child
         throw "No children!";
     }
 
-    if (this->tree->objective == 1){
+    if (this->tree->objective == 0){
         // DO RELATIVE PU, requires only B
         std::vector<std::tuple<double, double, double, CobwebNode *>> relative_pu;
         for (auto &child: this->children) {
@@ -2356,9 +2356,9 @@ PYBIND11_MODULE(cobweb, m) {
         .def(py::init<float, bool, int, bool, bool>(),
                 py::arg("alpha") = 1.0,
                 py::arg("weight_attr") = false,
-                py::arg("objective") = 2,
+                py::arg("objective") = 0,
                 py::arg("children_norm") = true,
-                py::arg("norm_attributes") = true)
+                py::arg("norm_attributes") = false)
         .def("ifit", &CobwebTree::ifit, py::return_value_policy::reference)
         .def("fit", &CobwebTree::fit,
                 py::arg("instances") = std::vector<AV_COUNT_TYPE>(),
