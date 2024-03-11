@@ -174,6 +174,10 @@ double logsumexp(std::vector<double> arr) {
     }
 }
 
+double logsumexp(double n1, double n2) {
+    double max_val = std::max(n1, n2);
+    return log(exp(n1 - max_val) + exp(n2 - max_val)) + max_val;
+}
 
 
 class CobwebNode {
@@ -244,6 +248,7 @@ class CobwebNode {
         std::vector<std::tuple<VALUE_TYPE, double>>
             get_weighted_values(ATTR_TYPE attr, bool allowNone = true);
         std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs();
+        std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_log_probs();
         std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_weighted_probs(INSTANCE_TYPE instance);
         std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_weighted_leaves_probs(INSTANCE_TYPE instance);
         VALUE_TYPE predict(ATTR_TYPE attr, std::string choiceFn = "most likely",
@@ -605,13 +610,14 @@ class CobwebTree {
             return this->categorize_helper(instance);
         }
 
-        std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing, int obj){
+        std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing){
 
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
             std::unordered_map<std::string, std::unordered_map<std::string, std::vector<double>>> weighted_pred_probs;
 
             int nodes_expanded = 0;
-            double total_weight = 0.0;
+            double total_weight = 0;
+            bool first_weight = true;
 
             double root_ll_inst = 0;
             if (missing){
@@ -626,19 +632,8 @@ class CobwebTree {
             auto queue = std::priority_queue<
                 std::tuple<double, double, CobwebNode*>>();
 
-            double score = 0.0;
-            if (obj == 0){
-                score = 1;
-            } else if (obj == 1){
-                score = root_ll_inst;
-            } else if (obj == 2){
-                score = 0.0;
-            } else if (obj == 3){
-                score = 0.0;
-            }
-
             //std::cout << "root score: " << score << std::endl;
-            queue.push(std::make_tuple(score, 0.0, this->root));
+            queue.push(std::make_tuple(root_ll_inst, 0.0, this->root));
 
             while (queue.size() > 0){
                 auto node = queue.top();
@@ -654,19 +649,25 @@ class CobwebTree {
                 auto curr_ll = std::get<1>(node);
                 auto curr = std::get<2>(node);
 
-                
-                if (curr_score < 0){
-                    curr_score = 0;
+                // total_weight += curr_score;
+                // std::cout << "weight += " << std::to_string(curr_score) << " (" << std::to_string(exp(curr_score)) << ")" << std::endl;
+                if (first_weight){
+                    total_weight = curr_score;
+                    first_weight = false;
+                } else {
+                    total_weight = logsumexp(total_weight, curr_score);
                 }
-                
 
-                total_weight += curr_score;
+                // auto curr_preds = curr->predict_probs();
+                auto curr_log_probs = curr->predict_log_probs();
 
-                auto curr_preds = curr->predict_probs();
-
-                for (auto &[attr, val_set]: curr_preds) {
-                    for (auto &[val, p]: val_set) {
-                        out[attr][val] += curr_score * p;
+                for (auto &[attr, val_set]: curr_log_probs) {
+                    for (auto &[val, log_p]: val_set) {
+                        if (out.count(attr) && out.at(attr).count(val)){
+                            out[attr][val] = logsumexp(out[attr][val], curr_score + log_p);
+                        } else{
+                            out[attr][val] = curr_score + log_p;
+                        }
                     }
                 }
 
@@ -687,26 +688,17 @@ class CobwebTree {
                     auto child_ll_given_parent = log_children_probs[i];
                     auto child_ll = child_ll_given_parent + curr_ll;
 
-                    double score = 0;
-                    if (obj == 0){
-                        score = exp(child_ll);
-                    } else if (obj == 1){
-                        score = exp(child_ll_inst + child_ll);
-                    } else if (obj == 2){
-                        // score = exp(child_ll) - (child->count / this->root->count);
-                        score = exp(child_ll) * (exp(child_ll_inst) - exp(root_ll_inst));
-                    } else if (obj == 3){
-                        score = exp(child_ll) * (child_ll_inst - root_ll_inst);
-                    }
-
+                    // double score = exp(child_ll_inst + child_ll);
                     //std::cout << "Node score: " << score << ", ll_node: " << child_ll << ", ll_inst: " << child_ll_inst << std::endl;
-                    queue.push(std::make_tuple(score, child_ll, child));
+                    queue.push(std::make_tuple(child_ll_inst + child_ll, child_ll, child));
                 }
             }
 
             for (auto &[attr, val_set]: out) {
                 for (auto &[val, p]: val_set) {
-                    out[attr][val] /= total_weight;
+                    // out[attr][val] /= total_weight;
+                    // std::cout << attr << "=" << val << " -> " << out[attr][val] << " - " << total_weight << " = " << exp(out[attr][val] - total_weight) << std::endl;
+                    out[attr][val] = exp(out[attr][val] - total_weight);
                 }
             }
             //std::cout << "Total Weight: " << total_weight << std::endl;
@@ -714,7 +706,7 @@ class CobwebTree {
             return out;
         }
 
-        std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing, int obj){
+        std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing){
            AV_COUNT_TYPE cached_instance;
             for (auto &[attr, val_map]: instance) {
                 for (auto &[val, cnt]: val_map) {
@@ -722,7 +714,7 @@ class CobwebTree {
                 }
             }
             return this->predict_probs_mixture_helper(cached_instance, 0.0,
-                    max_nodes, greedy, missing, obj);
+                    max_nodes, greedy, missing);
         }
 
 };
@@ -1961,6 +1953,35 @@ inline std::unordered_map<std::string, std::unordered_map<std::string, double>> 
     return out;
 }
 
+inline std::unordered_map<std::string, std::unordered_map<std::string, double>> CobwebNode::predict_log_probs(){
+    std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
+    for (auto &[attr, val_set]: this->tree->attr_vals) {
+        // std::cout << attr << std::endl;
+        int num_vals = this->tree->attr_vals.at(attr).size();
+        float alpha = this->tree->alpha;
+        COUNT_TYPE attr_count = 0;
+
+        if (this->a_count.count(attr)){
+            attr_count = this->a_count.at(attr);
+        }
+
+        for (auto val: val_set) {
+            // std::cout << val << std::endl;
+            COUNT_TYPE av_count = 0;
+            if (this->av_count.count(attr) and this->av_count.at(attr).count(val)){
+                av_count = this->av_count.at(attr).at(val);
+            }
+
+            // double p = ((av_count + alpha) / (attr_count + num_vals * alpha));
+            // out[attr.get_string()][val.get_string()] += p;
+            // std::cout << p << std::endl;
+            out[attr.get_string()][val.get_string()] = (log(av_count + alpha) - log(attr_count + num_vals * alpha));
+        }
+    }
+
+    return out;
+}
+
 inline std::unordered_map<std::string, std::unordered_map<std::string, double>> CobwebNode::predict_probs(){
     std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
     for (auto &[attr, val_set]: this->tree->attr_vals) {
@@ -2306,6 +2327,7 @@ PYBIND11_MODULE(cobweb, m) {
         .def("pretty_print", &CobwebNode::pretty_print)
         .def("output_json", &CobwebNode::output_json)
         .def("predict_probs", &CobwebNode::predict_probs)
+        .def("predict_log_probs", &CobwebNode::predict_log_probs)
         .def("predict_weighted_probs", &CobwebNode::predict_weighted_probs)
         .def("predict_weighted_leaves_probs", &CobwebNode::predict_weighted_leaves_probs)
         .def("predict", &CobwebNode::predict, py::arg("attr") = "",
