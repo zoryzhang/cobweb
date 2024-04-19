@@ -16,6 +16,7 @@
 #include "assert.h"
 #include "json.hpp"
 #include "cached_string.hpp"
+#include "BS_thread_pool.hpp"
 
 namespace py = pybind11;
 
@@ -45,6 +46,29 @@ std::uniform_real_distribution<double> unif(0, 1);
 std::unordered_map<int, double> lgammaCache;
 std::unordered_map<int, std::unordered_map<int, int>> binomialCache;
 std::unordered_map<int, std::unordered_map<double, double>> entropy_k_cache;
+
+void displayProgressBar(int width, double progress_percentage, double seconds_elapsed) {
+
+    int hours = seconds_elapsed / 3600;
+    int minutes = (seconds_elapsed - hours * 3600) / 60;
+    int secs = seconds_elapsed - hours * 3600 - minutes * 60;
+
+    double estimated = seconds_elapsed / progress_percentage * (1.0 - progress_percentage);
+
+    int hours_left = estimated / 3600;
+    int minutes_left = (estimated - hours_left * 3600) / 60;
+    int secs_left = estimated - hours_left * 3600 - minutes_left * 60;
+
+    int pos = width * progress_percentage;
+    std::cout << "[";
+    for (int i = 0; i < width; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << int(progress_percentage * 100.0) << " %; " << hours << ":" << std::setfill('0') << std::setw(2) << minutes << ":" << std::setfill('0') << std::setw(2) << secs << " elapsed; " << hours_left << ":" << std::setfill('0') << std::setw(2) << minutes_left << ":" << std::setfill('0') << std::setw(2) << secs_left << " left\r";
+    std::cout.flush();
+}
 
 double lgamma_cached(int n){
     auto it = lgammaCache.find(n);
@@ -407,7 +431,7 @@ class CobwebTree {
             struct json_object_element_s* weight_attr_obj = alpha_obj->next;
             bool weight_attr = bool(atoi(json_value_as_number(weight_attr_obj->value)->number));
             this->weight_attr = weight_attr;
-            
+
             // objective
             struct json_object_element_s* objective_obj = weight_attr_obj->next;
             int objective = atoi(json_value_as_number(objective_obj->value)->number);
@@ -417,7 +441,7 @@ class CobwebTree {
             struct json_object_element_s* children_norm_obj = objective_obj->next;
             bool children_norm = bool(atoi(json_value_as_number(children_norm_obj->value)->number));
             this->children_norm = children_norm;
-            
+
             // norm_attributes
             struct json_object_element_s* norm_attributes_obj = children_norm_obj->next;
             bool norm_attributes = bool(atoi(json_value_as_number(norm_attributes_obj->value)->number));
@@ -552,7 +576,7 @@ class CobwebTree {
                                     current->children.end(), best2), current->children.end());
                         current->children.push_back(new_child);
                         current = new_child;
-                        
+
                     } else if (bestAction == SPLIT) {
                         // std::cout << "split" << std::endl;
                         current->children.erase(remove(current->children.begin(),
@@ -707,7 +731,7 @@ class CobwebTree {
         }
 
         std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing){
-           AV_COUNT_TYPE cached_instance;
+            AV_COUNT_TYPE cached_instance;
             for (auto &[attr, val_map]: instance) {
                 for (auto &[val, cnt]: val_map) {
                     cached_instance[CachedString(attr)][CachedString(val)] = instance.at(attr).at(val);
@@ -715,6 +739,43 @@ class CobwebTree {
             }
             return this->predict_probs_mixture_helper(cached_instance, 0.0,
                     max_nodes, greedy, missing);
+        }
+
+        std::vector<std::unordered_map<std::string, std::unordered_map<std::string, double>>> predict_probs_mixture_parallel(std::vector<INSTANCE_TYPE> instances, int max_nodes, bool greedy, bool missing, int num_threads){
+
+            BS::thread_pool pool = BS::thread_pool(num_threads);
+
+            std::vector<std::unordered_map<std::string, std::unordered_map<std::string, double>>> out(instances.size());
+
+            auto start = std::chrono::high_resolution_clock::now();
+
+            // pool.detach_loop<unsigned int>(0, instances.size(),
+            pool.detach_sequence<unsigned int>(0, instances.size(),
+                    [this, &instances, &out, max_nodes, greedy, missing](const unsigned int i)
+                    {
+                    out[i] = this->predict_probs_mixture(instances[i], max_nodes, greedy, missing);
+                    });
+
+            while (true)
+            {
+                if (!pool.wait_for(std::chrono::milliseconds(1000))){
+                    double progress = (instances.size() - pool.get_tasks_total()) / double(instances.size());
+                    auto current = std::chrono::high_resolution_clock::now();
+                    // std::chrono::duration<double, std::chrono::seconds> elapsed = current - start;
+                    std::chrono::duration<double, std::milli> elapsed = current - start;
+                    displayProgressBar(70, progress, elapsed.count()/1000.0);
+                    // std::cout << "There are " << pool.get_tasks_total() << " not done yet." << std::endl;
+                    // std::cout << pool.get_tasks_total() <<  " tasks total, " << pool.get_tasks_running() << " tasks running, " << pool.get_tasks_queued() <<  " tasks queued." << std::endl;
+                }
+                else{
+                    break;
+                }
+            }
+
+            pool.wait();
+
+            return out;
+
         }
 
 };
@@ -848,14 +909,14 @@ inline double CobwebNode::entropy_insert(const AV_COUNT_TYPE &instance){
     for (auto &[attr, av_inner]: this->av_count){
         if (attr.is_hidden()) continue;
         info += this->entropy_attr_insert(attr, instance);
-     }
+    }
 
     // iterate over attr in instance not in av_count
     for (auto &[attr, av_inner]: instance){
         if (attr.is_hidden()) continue;
         if (this->av_count.count(attr)) continue;
         info += this->entropy_attr_insert(attr, instance);
-     }
+    }
 
     return info;
 }
@@ -1050,23 +1111,23 @@ inline double CobwebNode::entropy_attr(ATTR_TYPE attr){
                 num_vals_total * alpha));
     return info;
 
-    /* 
-    int n = std::ceil(ratio);
-    info -= lgamma_cached(n+1);
+    /*
+       int n = std::ceil(ratio);
+       info -= lgamma_cached(n+1);
 
-    for (auto &[val, cnt]: inner_av){
-        double p = ((cnt + alpha) / (attr_count + num_vals * alpha));
-        info += entropy_component_k(n, p);
-    }
+       for (auto &[val, cnt]: inner_av){
+       double p = ((cnt + alpha) / (attr_count + num_vals * alpha));
+       info += entropy_component_k(n, p);
+       }
 
-    COUNT_TYPE num_missing = num_vals - inner_av.size();
-    if (num_missing > 0 and alpha > 0){
-        double p = (alpha / (attr_count + num_vals * alpha));
-        info += num_missing * entropy_component_k(n, p);
-    }
+       COUNT_TYPE num_missing = num_vals - inner_av.size();
+       if (num_missing > 0 and alpha > 0){
+       double p = (alpha / (attr_count + num_vals * alpha));
+       info += num_missing * entropy_component_k(n, p);
+       }
 
-    return info;
-    */
+       return info;
+       */
 
 }
 
@@ -1147,11 +1208,11 @@ inline std::tuple<double, CobwebNode *, CobwebNode *> CobwebNode::two_best_child
         std::vector<std::tuple<double, double, double, CobwebNode *>> pus;
         for (auto &child: this->children) {
             pus.push_back(
-                std::make_tuple(
-                    pu_for_insert(child, instance),
-                    child->count,
-                    custom_rand(),
-                    child));
+                    std::make_tuple(
+                        pu_for_insert(child, instance),
+                        child->count,
+                        custom_rand(),
+                        child));
         }
         sort(pus.rbegin(), pus.rend());
         CobwebNode *best1 = std::get<3>(pus[0]);
@@ -1227,7 +1288,7 @@ inline double CobwebNode::partition_utility() {
         }
         entropy += obj;
 
-        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / this->children.size(); 
+        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / this->children.size();
         // entropy += (parent_entropy - children_entropy) / parent_entropy;
         // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy);
     }
@@ -1315,10 +1376,10 @@ inline double CobwebNode::pu_for_insert(CobwebNode *child, const AV_COUNT_TYPE &
         entropy += obj;
 
         // entropy += (parent_entropy - children_entropy) / this->children.size();
-        // entropy += (parent_entropy - children_entropy) / parent_entropy / this->children.size(); 
-        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / this->children.size(); 
+        // entropy += (parent_entropy - children_entropy) / parent_entropy / this->children.size();
+        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / this->children.size();
         // entropy += (parent_entropy - children_entropy) / parent_entropy;
-        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy); 
+        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy);
 
     }
 
@@ -1326,7 +1387,7 @@ inline double CobwebNode::pu_for_insert(CobwebNode *child, const AV_COUNT_TYPE &
 }
 
 inline double CobwebNode::pu_for_new_child(const AV_COUNT_TYPE &instance) {
-    
+
 
     // TODO maybe modify so that we can evaluate new child without copying
     // instance.
@@ -1401,7 +1462,7 @@ inline double CobwebNode::pu_for_new_child(const AV_COUNT_TYPE &instance) {
         // entropy += (parent_entropy - children_entropy) / parent_entropy / (this->children.size() + 1);
         // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / (this->children.size() + 1);
         // entropy += (parent_entropy - children_entropy) / parent_entropy;
-        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy); 
+        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy);
     }
 
     return entropy;
@@ -1409,7 +1470,7 @@ inline double CobwebNode::pu_for_new_child(const AV_COUNT_TYPE &instance) {
 
 inline double CobwebNode::pu_for_merge(CobwebNode *best1,
         CobwebNode *best2, const AV_COUNT_TYPE &instance) {
-    
+
     // BEGIN INDIVIDUAL
     if (!this->tree->norm_attributes){
         double parent_entropy = 0.0;
@@ -1487,7 +1548,7 @@ inline double CobwebNode::pu_for_merge(CobwebNode *best1,
         // entropy += (parent_entropy - children_entropy) / parent_entropy / (this->children.size() - 1);
         // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / (this->children.size() - 1);
         // entropy += (parent_entropy - children_entropy) / parent_entropy;
-        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy); 
+        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy);
     }
 
     return entropy;
@@ -1575,7 +1636,7 @@ inline double CobwebNode::pu_for_split(CobwebNode *best){
         // entropy += (parent_entropy - children_entropy) / parent_entropy / (this->children.size() - 1 + best->children.size());
         // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy) / (this->children.size() - 1 + best->children.size());
         // entropy += (parent_entropy - children_entropy) / parent_entropy;
-        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy); 
+        // entropy += (parent_entropy - children_entropy) / (children_entropy + concept_entropy);
 
     }
 
@@ -1688,7 +1749,7 @@ inline std::string CobwebNode::avcounts_to_json() {
     // ret += "\"std\": 1,\n";
     // ret += "\"n\": 1,\n";
     // ret += "}},\n";
-    
+
     ret += "\"_category_utility\": {\n";
     ret += "\"#ContinuousValue#\": {\n";
     ret += "\"mean\": " + std::to_string(this->category_utility()) + ",\n";
@@ -1709,7 +1770,7 @@ inline std::string CobwebNode::avcounts_to_json() {
         int inner_count = 0;
         for (auto &[val, cnt]: vAttr) {
             ret += "\"" + val.get_string() + "\": " + doubleToString(cnt);
-                // std::to_string(cnt);
+            // std::to_string(cnt);
             if (inner_count != int(vAttr.size()) - 1){
                 ret += ", ";
             }
@@ -1735,7 +1796,7 @@ inline std::string CobwebNode::ser_avcounts() {
         int inner_count = 0;
         for (auto &[val, cnt]: vAttr) {
             ret += "\"" + val.get_string() + "\": " + doubleToString(cnt);
-                // std::to_string(cnt);
+            // std::to_string(cnt);
             if (inner_count != int(vAttr.size()) - 1){
                 ret += ", ";
             }
@@ -1760,7 +1821,7 @@ inline std::string CobwebNode::a_count_to_json() {
         if (!first) ret += ",\n";
         else first = false;
         ret += "\"" + attr.get_string() + "\": " + doubleToString(cnt);
-            // std::to_string(cnt);
+        // std::to_string(cnt);
     }
 
     ret += "}";
@@ -1775,7 +1836,7 @@ inline std::string CobwebNode::sum_n_logn_to_json() {
         if (!first) ret += ",\n";
         else first = false;
         ret += "\"" + attr.get_string() + "\": " + doubleToString(cnt);
-            // std::to_string(cnt);
+        // std::to_string(cnt);
     }
 
     ret += "}";
@@ -1827,7 +1888,7 @@ inline std::string CobwebNode::output_json(){
     return output;
 }
 
-// TODO 
+// TODO
 // TODO This should use the path prob, not the node prob.
 // TODO
 inline std::unordered_map<std::string, std::unordered_map<std::string, double>> CobwebNode::predict_weighted_leaves_probs(INSTANCE_TYPE instance){
@@ -2235,7 +2296,7 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
     double log_prob = 0;
 
     for (auto &[attr, val_set]: this->tree->attr_vals) {
-    // for (auto &[attr, vAttr]: instance) {
+        // for (auto &[attr, vAttr]: instance) {
         bool hidden = attr.is_hidden();
         if (hidden){
             continue;
@@ -2297,81 +2358,82 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
     }
 
     return log_prob;
-}
-
-
-
-int main(int argc, char* argv[]) {
-    std::vector<AV_COUNT_TYPE> instances;
-    std::vector<CobwebNode*> cs;
-    auto tree = CobwebTree(0.01, false, 2, true, true);
-
-    for (int i = 0; i < 1000; i++){
-        INSTANCE_TYPE inst;
-        inst["anchor"]["word" + std::to_string(i)] = 1;
-        inst["anchor2"]["word" + std::to_string(i % 10)] = 1;
-        inst["anchor3"]["word" + std::to_string(i % 20)] = 1;
-        inst["anchor4"]["word" + std::to_string(i % 100)] = 1;
-        cs.push_back(tree.ifit(inst));
     }
 
-    return 0;
-}
 
 
-PYBIND11_MODULE(cobweb, m) {
-    m.doc() = "cobweb plug-in"; // optional module docstring
+    int main(int argc, char* argv[]) {
+        std::vector<AV_COUNT_TYPE> instances;
+        std::vector<CobwebNode*> cs;
+        auto tree = CobwebTree(0.01, false, 2, true, true);
 
-    py::class_<CobwebNode>(m, "CobwebNode")
-        .def(py::init<>())
-        .def("pretty_print", &CobwebNode::pretty_print)
-        .def("output_json", &CobwebNode::output_json)
-        .def("predict_probs", &CobwebNode::predict_probs)
-        .def("predict_log_probs", &CobwebNode::predict_log_probs)
-        .def("predict_weighted_probs", &CobwebNode::predict_weighted_probs)
-        .def("predict_weighted_leaves_probs", &CobwebNode::predict_weighted_leaves_probs)
-        .def("predict", &CobwebNode::predict, py::arg("attr") = "",
-                py::arg("choiceFn") = "most likely",
-                py::arg("allowNone") = true )
-        .def("get_best_level", &CobwebNode::get_best_level, py::return_value_policy::reference)
-        .def("get_basic_level", &CobwebNode::get_basic_level, py::return_value_policy::reference)
-        .def("log_prob_class_given_instance", &CobwebNode::log_prob_class_given_instance_ext) 
-        .def("log_prob_instance", &CobwebNode::log_prob_instance_ext) 
-        .def("log_prob_instance_missing", &CobwebNode::log_prob_instance_missing_ext) 
-        .def("prob_children_given_instance", &CobwebNode::prob_children_given_instance_ext)
-        .def("log_prob_children_given_instance", &CobwebNode::log_prob_children_given_instance_ext)
-        .def("entropy", &CobwebNode::entropy)
-        .def("category_utility", &CobwebNode::category_utility)
-        .def("partition_utility", &CobwebNode::partition_utility)
-        .def("__str__", &CobwebNode::__str__)
-        .def("concept_hash", &CobwebNode::concept_hash)
-        .def_readonly("count", &CobwebNode::count)
-        .def_readonly("children", &CobwebNode::children, py::return_value_policy::reference)
-        .def_readonly("parent", &CobwebNode::parent, py::return_value_policy::reference)
-        .def_readonly("av_count", &CobwebNode::av_count, py::return_value_policy::reference)
-        .def_readonly("a_count", &CobwebNode::a_count, py::return_value_policy::reference)
-        .def_readonly("tree", &CobwebNode::tree, py::return_value_policy::reference);
+        for (int i = 0; i < 1000; i++){
+            INSTANCE_TYPE inst;
+            inst["anchor"]["word" + std::to_string(i)] = 1;
+            inst["anchor2"]["word" + std::to_string(i % 10)] = 1;
+            inst["anchor3"]["word" + std::to_string(i % 20)] = 1;
+            inst["anchor4"]["word" + std::to_string(i % 100)] = 1;
+            cs.push_back(tree.ifit(inst));
+        }
 
-    py::class_<CobwebTree>(m, "CobwebTree")
-        .def(py::init<float, bool, int, bool, bool>(),
-                py::arg("alpha") = 1.0,
-                py::arg("weight_attr") = false,
-                py::arg("objective") = 0,
-                py::arg("children_norm") = true,
-                py::arg("norm_attributes") = false)
-        .def("ifit", &CobwebTree::ifit, py::return_value_policy::reference)
-        .def("fit", &CobwebTree::fit,
-                py::arg("instances") = std::vector<AV_COUNT_TYPE>(),
-                py::arg("iterations") = 1,
-                py::arg("randomizeFirst") = true)
-        .def("categorize", &CobwebTree::categorize,
-                py::arg("instance") = std::vector<AV_COUNT_TYPE>(),
-                // py::arg("get_best_concept") = false,
-                py::return_value_policy::reference)
-        .def("predict_probs", &CobwebTree::predict_probs_mixture)
-        .def("clear", &CobwebTree::clear)
-        .def("__str__", &CobwebTree::__str__)
-        .def("dump_json", &CobwebTree::dump_json)
-        .def("load_json", &CobwebTree::load_json)
-        .def_readonly("root", &CobwebTree::root, py::return_value_policy::reference);
-}
+        return 0;
+    }
+
+
+    PYBIND11_MODULE(cobweb, m) {
+        m.doc() = "cobweb plug-in"; // optional module docstring
+
+        py::class_<CobwebNode>(m, "CobwebNode")
+            .def(py::init<>())
+            .def("pretty_print", &CobwebNode::pretty_print)
+            .def("output_json", &CobwebNode::output_json)
+            .def("predict_probs", &CobwebNode::predict_probs)
+            .def("predict_log_probs", &CobwebNode::predict_log_probs)
+            .def("predict_weighted_probs", &CobwebNode::predict_weighted_probs)
+            .def("predict_weighted_leaves_probs", &CobwebNode::predict_weighted_leaves_probs)
+            .def("predict", &CobwebNode::predict, py::arg("attr") = "",
+                    py::arg("choiceFn") = "most likely",
+                    py::arg("allowNone") = true )
+            .def("get_best_level", &CobwebNode::get_best_level, py::return_value_policy::reference)
+            .def("get_basic_level", &CobwebNode::get_basic_level, py::return_value_policy::reference)
+            .def("log_prob_class_given_instance", &CobwebNode::log_prob_class_given_instance_ext)
+            .def("log_prob_instance", &CobwebNode::log_prob_instance_ext)
+            .def("log_prob_instance_missing", &CobwebNode::log_prob_instance_missing_ext)
+            .def("prob_children_given_instance", &CobwebNode::prob_children_given_instance_ext)
+            .def("log_prob_children_given_instance", &CobwebNode::log_prob_children_given_instance_ext)
+            .def("entropy", &CobwebNode::entropy)
+            .def("category_utility", &CobwebNode::category_utility)
+            .def("partition_utility", &CobwebNode::partition_utility)
+            .def("__str__", &CobwebNode::__str__)
+            .def("concept_hash", &CobwebNode::concept_hash)
+            .def_readonly("count", &CobwebNode::count)
+            .def_readonly("children", &CobwebNode::children, py::return_value_policy::reference)
+            .def_readonly("parent", &CobwebNode::parent, py::return_value_policy::reference)
+            .def_readonly("av_count", &CobwebNode::av_count, py::return_value_policy::reference)
+            .def_readonly("a_count", &CobwebNode::a_count, py::return_value_policy::reference)
+            .def_readonly("tree", &CobwebNode::tree, py::return_value_policy::reference);
+
+        py::class_<CobwebTree>(m, "CobwebTree")
+            .def(py::init<float, bool, int, bool, bool>(),
+                    py::arg("alpha") = 1.0,
+                    py::arg("weight_attr") = false,
+                    py::arg("objective") = 0,
+                    py::arg("children_norm") = true,
+                    py::arg("norm_attributes") = false)
+            .def("ifit", &CobwebTree::ifit, py::return_value_policy::reference)
+            .def("fit", &CobwebTree::fit,
+                    py::arg("instances") = std::vector<AV_COUNT_TYPE>(),
+                    py::arg("iterations") = 1,
+                    py::arg("randomizeFirst") = true)
+            .def("categorize", &CobwebTree::categorize,
+                    py::arg("instance") = std::vector<AV_COUNT_TYPE>(),
+                    // py::arg("get_best_concept") = false,
+                    py::return_value_policy::reference)
+            .def("predict_probs", &CobwebTree::predict_probs_mixture)
+            .def("predict_probs_parallel", &CobwebTree::predict_probs_mixture_parallel)
+            .def("clear", &CobwebTree::clear)
+            .def("__str__", &CobwebTree::__str__)
+            .def("dump_json", &CobwebTree::dump_json)
+            .def("load_json", &CobwebTree::load_json)
+            .def_readonly("root", &CobwebTree::root, py::return_value_policy::reference);
+    }
