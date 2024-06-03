@@ -2411,6 +2411,7 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
             .def("partition_utility", &CobwebNode::partition_utility)
             .def("__str__", &CobwebNode::__str__)
             .def("concept_hash", &CobwebNode::concept_hash)
+            .def_readonly(“concept_id”, &CobwebNode::concept_id)
             .def_readonly("count", &CobwebNode::count)
             .def_readonly("children", &CobwebNode::children, py::return_value_policy::reference)
             .def_readonly("parent", &CobwebNode::parent, py::return_value_policy::reference)
