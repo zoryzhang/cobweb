@@ -867,7 +867,7 @@ inline double CobwebNode::entropy_attr_insert(ATTR_TYPE attr, const AV_COUNT_TYP
     COUNT_TYPE attr_count = 0;
 
     double ratio = 1.0;
-    if (this->tree->weight_attr){
+    if (this->tree->weight_attr and this->tree->root->a_count.count(attr)){
         ratio = (1.0 * this->tree->root->a_count.at(attr)) / (this->tree->root->count);
         // ratio = (1.0 * attr_count) / this->count;
     }
@@ -937,7 +937,7 @@ inline double CobwebNode::entropy_attr_merge(ATTR_TYPE attr,
     COUNT_TYPE attr_count = 0;
 
     double ratio = 1.0;
-    if (this->tree->weight_attr){
+    if (this->tree->weight_attr and this->tree->root->a_count.count(attr)){
         ratio = (1.0 * this->tree->root->a_count.at(attr)) / (this->tree->root->count);
         // ratio = (1.0 * attr_count) / this->count;
     }
@@ -1094,7 +1094,7 @@ inline double CobwebNode::entropy_attr(ATTR_TYPE attr){
     }
 
     double ratio = 1.0;
-    if (this->tree->weight_attr){
+    if (this->tree->weight_attr and this->tree->root->a_count.count(attr)){
         ratio = (1.0 * this->tree->root->a_count.at(attr)) / (this->tree->root->count);
         // ratio = (1.0 * attr_count) / this->count;
     }
@@ -2341,7 +2341,7 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
         }
         else {
             double cnt = 1.0;
-            if (this->tree->weight_attr){
+            if (this->tree->weight_attr and this->tree->root->a_count.count(attr)){
                 cnt = (1.0 * this->tree->root->a_count.at(attr)) / (this->tree->root->count);
             }
 
