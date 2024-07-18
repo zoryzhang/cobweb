@@ -2380,6 +2380,13 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
 
     PYBIND11_MODULE(cobweb, m) {
         m.doc() = "cobweb plug-in"; // optional module docstring
+        
+        
+        py::class_<CachedString>(m, "CachedString")
+            .def(py::init<std::string>())
+            .def("__str__", &CachedString::get_string)
+            .def("__hash__", &CachedString::get_hash)
+            .def("__eq__", &CachedString::operator==);
 
         py::class_<CobwebNode>(m, "CobwebNode")
             .def(py::init<>())
