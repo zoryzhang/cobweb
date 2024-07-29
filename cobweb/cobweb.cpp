@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <vector>
 #include <queue>
+#include <list>
 #include <unordered_map>
 #include <functional>
 #include <random>
@@ -633,9 +634,7 @@ class CobwebTree {
         }
 
         std::unordered_map<std::string, std::unordered_map<std::string, double>> predict_probs_mixture_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing){
-
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
-            std::unordered_map<std::string, std::unordered_map<std::string, std::vector<double>>> weighted_pred_probs;
 
             int nodes_expanded = 0;
             double total_weight = 0;
@@ -776,6 +775,115 @@ class CobwebTree {
 
         }
 
+        std::tuple<
+            //std::unordered_map< std::string, std::unordered_map<std::string, double> >
+            //,
+            std::list< std::tuple<CobwebNode*, double> > 
+        > obtain_representation_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing){
+            
+            std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
+            int nodes_expanded = 0;
+            double total_weight = 0;
+            bool first_weight = true;
+
+            double root_ll_inst = 0;
+            if (missing){
+                root_ll_inst = this->root->log_prob_instance_missing(instance);
+            }
+            else {
+                root_ll_inst = this->root->log_prob_instance(instance);
+            }
+
+            auto queue = std::priority_queue<
+                std::tuple<double, double, CobwebNode*>>();
+            auto repr_queue = std::list<
+                std::tuple<CobwebNode*, double>>();
+
+            queue.push(std::make_tuple(root_ll_inst, 0.0, this->root));
+
+            while (queue.size() > 0){
+                auto node = queue.top();
+                queue.pop();
+                nodes_expanded += 1;
+
+                if (greedy){
+                    queue = std::priority_queue<
+                        std::tuple<double, double, CobwebNode*>>();
+                }
+
+                auto curr_score = std::get<0>(node);
+                auto curr_ll = std::get<1>(node);
+                auto curr = std::get<2>(node);
+                
+                repr_queue.push_back(std::make_tuple(curr, exp(curr_score)));
+                printf("repr_queue ++\n");
+
+                if (first_weight){
+                    total_weight = curr_score;
+                    first_weight = false;
+                } else {
+                    total_weight = logsumexp(total_weight, curr_score);
+                }
+
+                auto curr_log_probs = curr->predict_log_probs();
+                for (auto &[attr, val_set]: curr_log_probs) {
+                    for (auto &[val, log_p]: val_set) {
+                        if (out.count(attr) && out.at(attr).count(val)){
+                            out[attr][val] = logsumexp(out[attr][val], curr_score + log_p);
+                        } else{
+                            out[attr][val] = curr_score + log_p;
+                        }
+                    }
+                }
+
+                if (nodes_expanded >= max_nodes) break;
+
+                std::vector<double> log_children_probs = curr->log_prob_children_given_instance(instance);
+                for (size_t i = 0; i < curr->children.size(); ++i) {
+                    auto child = curr->children[i];
+                    double child_ll_inst = 0;
+                    if (missing){
+                        child_ll_inst = child->log_prob_instance_missing(instance);
+                    } else {
+                        child_ll_inst = child->log_prob_instance(instance);
+                    }
+                    auto child_ll_given_parent = log_children_probs[i];
+                    auto child_ll = child_ll_given_parent + curr_ll;
+                    queue.push(std::make_tuple(child_ll_inst + child_ll, child_ll, child));
+                }
+            }
+            for (auto &[attr, val_set]: out) {
+                for (auto &[val, p]: val_set) {
+                    out[attr][val] = exp(out[attr][val] - total_weight);
+                }
+            }
+            std::cout<<"finish ++\n";
+            return std::make_tuple(repr_queue);
+        }
+
+        /**
+         * Return nodes found in multi-node prediction as a representation of the instance.
+         *
+         * @param instance The instance to be represented.
+         * @param max_nodes The maximum number of nodes to be searched.
+         * @param greedy Whether to use a greedy search.
+         * @param missing @TODO
+         * @return What will be returned in predict_probs_mixture, as long as a list< tuple< a pointer to the CobwebNode, its **raw** collocation score subject to normalization> >
+         */
+        std::tuple<
+            //std::unordered_map< std::string, std::unordered_map<std::string, double> >
+            //,
+            std::list< std::tuple<CobwebNode*, double> > 
+        > obtain_representation_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing){
+            AV_COUNT_TYPE cached_instance;
+            for (auto &[attr, val_map]: instance) {
+                for (auto &[val, cnt]: val_map) {
+                    cached_instance[CachedString(attr)][CachedString(val)] = instance.at(attr).at(val);
+                }
+            }
+            std::cout<<"obtain_representation_mixture: instance cached\n";
+            return this->obtain_representation_helper(cached_instance, 0.0, max_nodes, greedy, missing);
+        }
 };
 
 inline CobwebNode::CobwebNode() {
@@ -2435,6 +2543,7 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
                     py::arg("instance") = std::vector<AV_COUNT_TYPE>(),
                     // py::arg("get_best_concept") = false,
                     py::return_value_policy::reference)
+            .def("obtain_representation", &CobwebTree::obtain_representation_mixture)
             .def("predict_probs", &CobwebTree::predict_probs_mixture)
             .def("predict_probs_parallel", &CobwebTree::predict_probs_mixture_parallel)
             .def("clear", &CobwebTree::clear)
