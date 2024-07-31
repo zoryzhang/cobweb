@@ -11,6 +11,12 @@ ext_modules = intree_extensions(glob('cobweb/*.cpp'))
 #     module.cxx_std = '2a'
 #     module.extra_link_args.append("-ltbb")
 
+for module in ext_modules:
+    module.cxx_std = 17
+    module.extra_compile_args.append("-g3")
+    #module.extra_compile_args.append("-fsanitize=leak")
+    #module.extra_compile_args.append("-fsanitize=null")
+
 setup(
     name="cobweb",
     author="Christopher J. MacLellan, Xin Lian, Nicki Barari, Erik Harpstead",
