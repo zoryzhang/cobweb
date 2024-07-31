@@ -292,8 +292,8 @@ class CobwebTree {
         CobwebNode *root;
         AV_KEY_TYPE attr_vals;
         
-        intptr_t get_address() const {
-            return reinterpret_cast<intptr_t>(this);
+        inline size_t get_address() {
+            return std::hash<uintptr_t>()(reinterpret_cast<uintptr_t>(this));
         }
 
         CobwebTree(float alpha, bool weight_attr, int objective, bool children_norm, bool norm_attributes) {
@@ -589,6 +589,7 @@ class CobwebTree {
                             c->tree = this;
                             current->children.push_back(c);
                         }
+                        py::print("deleting", std::hash<uintptr_t>()(reinterpret_cast<uintptr_t>(best1)));
                         delete best1;
 
                     } else {
@@ -810,7 +811,7 @@ class CobwebTree {
             //py::print("&&&&&&&&&&&&&&& Tree -> ", oss3.str() );
 
             auto queue = std::priority_queue<
-                std::tuple<double, double, CobwebNode*>>();
+                std::tuple<double, double, CobwebNode*> >();
             auto repr_queue = std::list<
                 std::tuple<CobwebNode*, double>>();
 
@@ -874,6 +875,7 @@ class CobwebTree {
                     queue.push(std::make_tuple(child_ll_inst + child_ll, child_ll, child));
                 }
             }
+            
             for (auto &[attr, val_set]: out) {
                 for (auto &[val, p]: val_set) {
                     out[attr][val] = exp(out[attr][val] - total_weight);
@@ -894,7 +896,7 @@ class CobwebTree {
          * @param max_nodes The maximum number of nodes to be searched.
          * @param greedy Whether to use a greedy search.
          * @param missing @TODO
-         * @return What will be returned in predict_probs_mixture, as long as a list< tuple< a pointer to the CobwebNode, its **raw** collocation score subject to normalization> >
+         * @return What will be returned in predict_probs_mixture, as well as a list< tuple< a pointer to the CobwebNode, its **raw** collocation score subject to normalization> >
          */
         std::tuple<
             //std::unordered_map< std::string, std::unordered_map<std::string, double> >
@@ -907,7 +909,6 @@ class CobwebTree {
                     cached_instance[CachedString(attr)][CachedString(val)] = instance.at(attr).at(val);
                 }
             }
-            std::cout<<"obtain_representation_mixture: instance cached\n";
             return this->obtain_representation_helper(cached_instance, 0.0, max_nodes, greedy, missing);
         }
 };
@@ -1227,22 +1228,22 @@ inline double CobwebNode::entropy_attr(ATTR_TYPE attr){
     CobwebTree tt = *t;
     //py::print("wtf 2.8");
     float alpha = this->tree->alpha;
-    py::print("wtf 3");
+    //py::print("wtf 3");
     //py::print("alpha", alpha);
     int num_vals_total = this->tree->attr_vals.at(attr).size();
     int num_vals_in_c = 0;
     COUNT_TYPE attr_count = 0;
-    py::print("num_vals_total: ", num_vals_total);
+    //py::print("num_vals_total: ", num_vals_total);
 
-    py::print("wtf 3.1");
-    py::print("this->av_count", this->av_count);
-    if (this->av_count.count(attr)) {py::print("this->av_count.at(attr)", this->av_count.at(attr));}
+    //py::print("wtf 3.1");
+    //py::print("this->av_count", this->av_count);
+    //if (this->av_count.count(attr)) {py::print("this->av_count.at(attr)", this->av_count.at(attr));}
     if (this->av_count.count(attr)){
         attr_count = this->a_count.at(attr);
         num_vals_in_c = this->av_count.at(attr).size();
     }
-    py::print("attr_count: ", attr_count);
-    py::print("num_vals_in_c: ", num_vals_in_c);
+    //py::print("attr_count: ", attr_count);
+    //py::print("num_vals_in_c: ", num_vals_in_c);
 
     double ratio = 1.0;
     if (this->tree->weight_attr and this->tree->root->a_count.count(attr)){
@@ -1255,7 +1256,7 @@ inline double CobwebNode::entropy_attr(ATTR_TYPE attr){
     if (this->sum_n_logn.count(attr)){
         sum_n_logn = this->sum_n_logn.at(attr);
     }
-    py::print("sum_n_logn: ", sum_n_logn);
+    //py::print("sum_n_logn: ", sum_n_logn);
 
 
     int n0 = num_vals_total - num_vals_in_c;

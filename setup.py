@@ -14,6 +14,9 @@ ext_modules = intree_extensions(glob('cobweb/*.cpp'))
 for module in ext_modules:
     module.cxx_std = 17
     module.extra_compile_args.append("-g3")
+    
+    # cannot use these:
+    #module.extra_compile_args.append("-Db_lundef=false")
     #module.extra_compile_args.append("-fsanitize=leak")
     #module.extra_compile_args.append("-fsanitize=null")
 
