@@ -1,5 +1,3 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -18,6 +16,19 @@
 #include "json.hpp"
 #include "cached_string.hpp"
 #include "BS_thread_pool.hpp"
+
+#ifdef NO_PYBIND11
+namespace pybind11 {
+    // Mock implementation of pybind11::print
+    template <typename... Args>
+    void print(Args&&... args) {
+        //(std::cout << ... << args) << std::endl;
+    }
+}
+#else
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#endif
 
 namespace py = pybind11;
 
@@ -291,10 +302,6 @@ class CobwebTree {
         bool norm_attributes;
         CobwebNode *root;
         AV_KEY_TYPE attr_vals;
-        
-        inline size_t get_address() {
-            return std::hash<uintptr_t>()(reinterpret_cast<uintptr_t>(this));
-        }
 
         CobwebTree(float alpha, bool weight_attr, int objective, bool children_norm, bool norm_attributes) {
             this->alpha = alpha;
@@ -589,7 +596,6 @@ class CobwebTree {
                             c->tree = this;
                             current->children.push_back(c);
                         }
-                        py::print("deleting", std::hash<uintptr_t>()(reinterpret_cast<uintptr_t>(best1)));
                         delete best1;
 
                     } else {
@@ -781,21 +787,15 @@ class CobwebTree {
         }
 
         std::tuple<
-            //std::unordered_map< std::string, std::unordered_map<std::string, double> >
-            //,
-            std::list< std::tuple<CobwebNode*, double> > 
+            std::unordered_map< std::string, std::unordered_map<std::string, double> >
+            ,
+            std::list< std::tuple<std::string, double> > 
         > obtain_representation_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing){
             
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
             int nodes_expanded = 0;
             double total_weight = 0;
             bool first_weight = true;
-
-            py::print("obtain_representation_helper 0\n");
-            // print the address of this->tree, without affected by __str__
-            std::ostringstream oss4;
-            oss4  << this->root->tree;
-            py::print("&&&&&&&&&&&&&&& Tree -> ", oss4.str() );
             
             double root_ll_inst = 0;
             if (missing){
@@ -804,24 +804,13 @@ class CobwebTree {
             else {
                 root_ll_inst = this->root->log_prob_instance(instance);
             }
-            //py::print("obtain_representation_helper 1\n");
-            //// print the address of this->tree, without affected by __str__
-            //std::ostringstream oss3;
-            //oss3  << this->root->tree;
-            //py::print("&&&&&&&&&&&&&&& Tree -> ", oss3.str() );
 
             auto queue = std::priority_queue<
                 std::tuple<double, double, CobwebNode*> >();
-            auto repr_queue = std::list<
-                std::tuple<CobwebNode*, double>>();
+            auto repr = std::list<
+                std::tuple<std::string, double>>();
 
             queue.push(std::make_tuple(root_ll_inst, 0.0, this->root));
-
-            //py::print("obtain_representation_helper 2\n");
-            //// print the address of this->tree, without affected by __str__
-            //std::ostringstream oss2;
-            //oss2  << this->root->tree;
-            //py::print("&&&&&&&&&&&&&&& Tree -> ", oss2.str() );
             
             while (queue.size() > 0){
                 auto node = queue.top();
@@ -832,14 +821,14 @@ class CobwebTree {
                     queue = std::priority_queue<
                         std::tuple<double, double, CobwebNode*>>();
                 }
-                //py::print("obtain_representation_helper 3\n");
 
                 auto curr_score = std::get<0>(node);
                 auto curr_ll = std::get<1>(node);
                 auto curr = std::get<2>(node);
                 
-                repr_queue.push_back(std::make_tuple(curr, exp(curr_score)));
-                //py::print("repr_queue ++\n");
+                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
+                repr.push_back(std::make_tuple(curr->concept_hash(), exp(curr_score)));
+                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
 
                 if (first_weight){
                     total_weight = curr_score;
@@ -881,12 +870,8 @@ class CobwebTree {
                     out[attr][val] = exp(out[attr][val] - total_weight);
                 }
             }
-            py::print("finish ++\n");
-            // print the address of this->tree, without affected by __str__
-            std::ostringstream oss1;
-            oss1  << this->root->tree;
-            py::print("&&&&&&&&&&&&&&& Tree -> ", oss1.str() );
-            return std::make_tuple(repr_queue);
+            
+            return std::make_tuple(out, repr);
         }
 
         /**
@@ -896,12 +881,12 @@ class CobwebTree {
          * @param max_nodes The maximum number of nodes to be searched.
          * @param greedy Whether to use a greedy search.
          * @param missing @TODO
-         * @return What will be returned in predict_probs_mixture, as well as a list< tuple< a pointer to the CobwebNode, its **raw** collocation score subject to normalization> >
+         * @return What will be returned in predict_probs_mixture, as well as a list< tuple< CobwebNode node id, its **raw** collocation score without normalization> >
          */
         std::tuple<
-            //std::unordered_map< std::string, std::unordered_map<std::string, double> >
-            //,
-            std::list< std::tuple<CobwebNode*, double> > 
+            std::unordered_map< std::string, std::unordered_map<std::string, double> >
+            ,
+            std::list< std::tuple<std::string, double> > 
         > obtain_representation_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing){
             AV_COUNT_TYPE cached_instance;
             for (auto &[attr, val_map]: instance) {
@@ -1209,41 +1194,17 @@ inline CobwebNode* CobwebNode::get_basic_level(){
 }
 
 inline double CobwebNode::entropy_attr(ATTR_TYPE attr){
-    //py::print("entropy_attr", attr.get_string());
     if (attr.is_hidden()) return 0.0;
-
-    //py::print("wtf 2");
-    assert(this->tree != nullptr and this->tree->alpha >= 0);
-    //py::print("wtf 2.5");
-    CobwebTree* t = this->tree;
-    //py::print("wtf 2.6");
-    assert(t != nullptr);
     
-    // print the address of this->tree, without affected by __str__
-    std::ostringstream oss;
-    oss  << this->tree;
-    py::print("&&&&&&&&&&&&&&& Tree -> ", oss.str() );
-    
-    //py::print("wtf 2.7");
-    CobwebTree tt = *t;
-    //py::print("wtf 2.8");
     float alpha = this->tree->alpha;
-    //py::print("wtf 3");
-    //py::print("alpha", alpha);
     int num_vals_total = this->tree->attr_vals.at(attr).size();
     int num_vals_in_c = 0;
     COUNT_TYPE attr_count = 0;
-    //py::print("num_vals_total: ", num_vals_total);
 
-    //py::print("wtf 3.1");
-    //py::print("this->av_count", this->av_count);
-    //if (this->av_count.count(attr)) {py::print("this->av_count.at(attr)", this->av_count.at(attr));}
     if (this->av_count.count(attr)){
         attr_count = this->a_count.at(attr);
         num_vals_in_c = this->av_count.at(attr).size();
     }
-    //py::print("attr_count: ", attr_count);
-    //py::print("num_vals_in_c: ", num_vals_in_c);
 
     double ratio = 1.0;
     if (this->tree->weight_attr and this->tree->root->a_count.count(attr)){
@@ -1256,7 +1217,6 @@ inline double CobwebNode::entropy_attr(ATTR_TYPE attr){
     if (this->sum_n_logn.count(attr)){
         sum_n_logn = this->sum_n_logn.at(attr);
     }
-    //py::print("sum_n_logn: ", sum_n_logn);
 
 
     int n0 = num_vals_total - num_vals_in_c;
@@ -1852,11 +1812,6 @@ inline std::string CobwebNode::__str__(){
 }
 
 inline std::string CobwebNode::concept_hash(){
-    // print the address of this->tree, without affected by __str__
-    std::ostringstream oss4;
-    oss4  << this->tree->root->tree;
-    py::print("&&&&&&&&&&&&&&& Tree -> ", oss4.str() );
-    
     return std::to_string(this->_hash());
 }
 
@@ -2294,9 +2249,7 @@ inline double CobwebNode::category_utility(){
 
     double p_of_child = (1.0 * this->count) / this->tree->root->count;
     for (auto &[attr, val_set]: this->tree->attr_vals) {
-        py::print("attr", attr.get_string(), "root");
         root_entropy += this->tree->root->entropy_attr(attr);
-        py::print("attr", attr.get_string(), "child");
         child_entropy += this->entropy_attr(attr);
     }
     
@@ -2406,7 +2359,6 @@ inline double CobwebNode::log_prob_instance(const AV_COUNT_TYPE &instance){
 
     double log_prob = 0;
 
-    //py::print("log_prob_instance", instance);
     for (auto &[attr, vAttr]: instance) {
         bool hidden = attr.is_hidden();
         if (hidden || !this->tree->attr_vals.count(attr)){
@@ -2419,17 +2371,12 @@ inline double CobwebNode::log_prob_instance(const AV_COUNT_TYPE &instance){
             if (!this->tree->attr_vals.at(attr).count(val)){
                 continue;
             }
-            //py::print(attr.get_string(), val.get_string(), cnt);
 
             double alpha = this->tree->alpha;
-            //py::print("alpha", alpha);
             double av_count = alpha;
-            //py::print("this->av_count", this->av_count);
-            //if (this->av_count.count(attr)) {py::print("this->av_count.at(attr)", this->av_count.at(attr));}
             if (this->av_count.count(attr) && this->av_count.at(attr).count(val)){
                 av_count += this->av_count.at(attr).at(val);
             }
-            //py::print("av_count", av_count);
 
             // a_count starts with the alphas over all values (even vals not in
             // current node)
@@ -2437,7 +2384,6 @@ inline double CobwebNode::log_prob_instance(const AV_COUNT_TYPE &instance){
             if (this->a_count.count(attr)){
                 a_count += this->a_count.at(attr);
             }
-            //py::print("a_count", a_count);
 
             // we use cnt here to weight accuracy by counts in the training
             // instance. Usually this is 1, but in  models, it might
@@ -2536,24 +2482,23 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
     int main(int argc, char* argv[]) {
         std::vector<AV_COUNT_TYPE> instances;
         std::vector<CobwebNode*> cs;
-        auto tree = CobwebTree(0.01, false, 2, true, true);
+        auto tree = CobwebTree(0.000001, false, 0, true, false);
 
-        for (int i = 0; i < 1000; i++){
+        for (int i = 0; i < 200; i++){
             INSTANCE_TYPE inst;
+            std::cout << "Instance " << i << std::endl;
             inst["anchor"]["word" + std::to_string(i)] = 1;
             inst["anchor2"]["word" + std::to_string(i % 10)] = 1;
             inst["anchor3"]["word" + std::to_string(i % 20)] = 1;
-            inst["anchor4"]["word" + std::to_string(i % 100)] = 1;
+            inst["anchor4"]["word" + std::to_string(i % 13)] = 1;
             cs.push_back(tree.ifit(inst));
         }
-
-        return 0;
     }
 
 
+#ifndef NO_PYBIND11
     PYBIND11_MODULE(cobweb, m) {
         m.doc() = "cobweb plug-in"; // optional module docstring
-        
         
         py::class_<CachedString>(m, "CachedString")
             .def(py::init<std::string>())
@@ -2599,8 +2544,6 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
                     py::arg("objective") = 0,
                     py::arg("children_norm") = true,
                     py::arg("norm_attributes") = false)
-            .def_readonly("alpha", &CobwebTree::alpha)
-            .def("get_address", &CobwebTree::get_address)
             .def("ifit", &CobwebTree::ifit, py::return_value_policy::reference)
             .def("fit", &CobwebTree::fit,
                     py::arg("instances") = std::vector<AV_COUNT_TYPE>(),
@@ -2619,3 +2562,4 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
             .def("load_json", &CobwebTree::load_json)
             .def_readonly("root", &CobwebTree::root, py::return_value_policy::reference);
     }
+#endif
