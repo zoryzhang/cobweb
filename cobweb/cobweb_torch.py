@@ -1045,7 +1045,7 @@ class CobwebTorchNode(object):
 
         """
         score = 0.0
-        parent_mean, parent_var, parent_p_label = self.mean_var_plabel()
+        parent_mean, parent_var, parent_p_label = self.mean_var_plabel_insert(instance, label)
 
         for c in self.children:
             if c == child:
@@ -1101,7 +1101,7 @@ class CobwebTorchNode(object):
         .. seealso:: :meth:`CobwebNode.get_best_operation`
         """
         score = 0.0
-        parent_mean, parent_var, parent_p_label = self.mean_var_plabel()
+        parent_mean, parent_var, parent_p_label = self.mean_var_plabel_insert(instance, label)
 
         for c in self.children:
             p_of_child = c.count / (self.count + 1)
@@ -1180,7 +1180,7 @@ class CobwebTorchNode(object):
         .. seealso:: :meth:`CobwebNode.get_best_operation`
         """
         score = 0.0
-        parent_mean, parent_var, parent_p_label = self.mean_var_plabel()
+        parent_mean, parent_var, parent_p_label = self.mean_var_plabel_insert(instance, label)
 
         for c in self.children:
             if c == best1 or c == best2:
