@@ -302,13 +302,15 @@ class CobwebTree {
         bool norm_attributes;
         CobwebNode *root;
         AV_KEY_TYPE attr_vals;
+        bool disable_splitting;
 
-        CobwebTree(float alpha, bool weight_attr, int objective, bool children_norm, bool norm_attributes) {
+        CobwebTree(float alpha, bool weight_attr, int objective, bool children_norm, bool norm_attributes, bool disable_splitting = false) {
             this->alpha = alpha;
             this->weight_attr = weight_attr;
             this->objective = objective;
             this->children_norm = children_norm;
             this->norm_attributes = norm_attributes;
+            this->disable_splitting = disable_splitting;
 
             this->root = new CobwebNode();
             this->root->tree = this;
@@ -1282,7 +1284,7 @@ inline std::tuple<double, int> CobwebNode::get_best_operation(
                     MERGE));
     }
 
-    if (best1->children.size() > 0) {
+    if (best1->children.size() > 0 and this->tree->disable_splitting == false) {
         operations.push_back(std::make_tuple(pu_for_split(best1),
                     custom_rand(),
                     SPLIT));
@@ -2538,12 +2540,13 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
             .def_readonly("tree", &CobwebNode::tree, py::return_value_policy::reference);
 
         py::class_<CobwebTree>(m, "CobwebTree")
-            .def(py::init<float, bool, int, bool, bool>(),
+            .def(py::init<float, bool, int, bool, bool, bool>(),
                     py::arg("alpha") = 1.0,
                     py::arg("weight_attr") = false,
                     py::arg("objective") = 0,
                     py::arg("children_norm") = true,
-                    py::arg("norm_attributes") = false)
+                    py::arg("norm_attributes") = false,
+                    py::arg("disable_splitting") = false)
             .def("ifit", &CobwebTree::ifit, py::return_value_policy::reference)
             .def("fit", &CobwebTree::fit,
                     py::arg("instances") = std::vector<AV_COUNT_TYPE>(),
