@@ -300,9 +300,9 @@ class CobwebTree {
         int objective;
         bool children_norm;
         bool norm_attributes;
+        bool disable_splitting;
         CobwebNode *root;
         AV_KEY_TYPE attr_vals;
-        bool disable_splitting;
 
         CobwebTree(float alpha, bool weight_attr, int objective, bool children_norm, bool norm_attributes, bool disable_splitting = false) {
             this->alpha = alpha;
@@ -423,6 +423,7 @@ class CobwebTree {
             output += "\"objective\": " + std::to_string(this->objective) + ",\n";
             output += "\"children_norm\": " + std::to_string(this->children_norm) + ",\n";
             output += "\"norm_attributes\": " + std::to_string(this->norm_attributes) + ",\n";
+            output += "\"disable_splitting\": " + std::to_string(this->disable_splitting) + ",\n";
             output += "\"root\": " + this->root->dump_json();
             output += "}\n";
 
@@ -458,9 +459,14 @@ class CobwebTree {
             struct json_object_element_s* norm_attributes_obj = children_norm_obj->next;
             bool norm_attributes = bool(atoi(json_value_as_number(norm_attributes_obj->value)->number));
             this->norm_attributes = norm_attributes;
+            
+            // disable_splitting
+            struct json_object_element_s* disable_splitting_obj = norm_attributes_obj->next;
+            bool disable_splitting = bool(atoi(json_value_as_number(disable_splitting_obj->value)->number));
+            this->disable_splitting = disable_splitting;
 
             // root
-            struct json_object_element_s* root_obj = norm_attributes_obj->next;
+            struct json_object_element_s* root_obj = disable_splitting_obj->next;
             struct json_object_s* root = json_value_as_object(root_obj->value);
 
             delete this->root;
