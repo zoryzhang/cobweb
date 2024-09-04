@@ -798,7 +798,7 @@ class CobwebTree {
             std::unordered_map< std::string, std::unordered_map<std::string, double> >
             ,
             std::list< std::tuple<std::string, double> > 
-        > obtain_representation_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing){
+        > obtain_representation_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing, bool category_validity_only){
             
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
             int nodes_expanded = 0;
@@ -811,6 +811,9 @@ class CobwebTree {
             }
             else {
                 root_ll_inst = this->root->log_prob_instance(instance);
+                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
+                //if (category_validity_only) root_ll_inst -= this->root->log_prob_instance(this->root->av_count);
+                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
             }
 
             auto queue = std::priority_queue<
@@ -833,10 +836,6 @@ class CobwebTree {
                 auto curr_score = std::get<0>(node);
                 auto curr_ll = std::get<1>(node);
                 auto curr = std::get<2>(node);
-                
-                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-                repr.push_back(std::make_tuple(curr->concept_hash(), exp(curr_score)));
-                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
 
                 if (first_weight){
                     total_weight = curr_score;
@@ -855,6 +854,10 @@ class CobwebTree {
                         }
                     }
                 }
+                
+                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
+                repr.push_back(std::make_tuple(curr->concept_hash(), exp(curr_score)));
+                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
 
                 if (nodes_expanded >= max_nodes) break;
 
@@ -866,10 +869,18 @@ class CobwebTree {
                         child_ll_inst = child->log_prob_instance_missing(instance);
                     } else {
                         child_ll_inst = child->log_prob_instance(instance);
+                        // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
+                        //if (category_validity_only) child_ll_inst -= child->log_prob_instance(child->av_count);
+                        // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
                     }
                     auto child_ll_given_parent = log_children_probs[i];
                     auto child_ll = child_ll_given_parent + curr_ll;
-                    queue.push(std::make_tuple(child_ll_inst + child_ll, child_ll, child));
+                    // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
+                    if (category_validity_only) 
+                        queue.push(std::make_tuple(child_ll_inst, child_ll, child));
+                    else
+                        queue.push(std::make_tuple(child_ll_inst + child_ll, child_ll, child));
+                    // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
                 }
             }
             
@@ -895,14 +906,14 @@ class CobwebTree {
             std::unordered_map< std::string, std::unordered_map<std::string, double> >
             ,
             std::list< std::tuple<std::string, double> > 
-        > obtain_representation_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing){
+        > obtain_representation_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing, bool category_validity_only){
             AV_COUNT_TYPE cached_instance;
             for (auto &[attr, val_map]: instance) {
                 for (auto &[val, cnt]: val_map) {
                     cached_instance[CachedString(attr)][CachedString(val)] = instance.at(attr).at(val);
                 }
             }
-            return this->obtain_representation_helper(cached_instance, 0.0, max_nodes, greedy, missing);
+            return this->obtain_representation_helper(cached_instance, 0.0, max_nodes, greedy, missing, category_validity_only);
         }
 };
 
