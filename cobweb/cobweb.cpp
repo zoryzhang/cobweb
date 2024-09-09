@@ -798,40 +798,76 @@ class CobwebTree {
             std::unordered_map< std::string, std::unordered_map<std::string, double> >
             ,
             std::list< std::tuple<std::string, double> > 
-        > obtain_representation_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, bool greedy, bool missing, bool category_validity_only){
-            
+        > obtain_description_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, int heuristic){
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
             int nodes_expanded = 0;
             double total_weight = 0;
             bool first_weight = true;
-            
-            double root_ll_inst = 0;
-            if (missing){
-                root_ll_inst = this->root->log_prob_instance_missing(instance);
-            }
-            else {
-                root_ll_inst = this->root->log_prob_instance(instance);
-                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-                //if (category_validity_only) root_ll_inst -= this->root->log_prob_instance(this->root->av_count);
-                // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-            }
-
             auto queue = std::priority_queue<
                 std::tuple<double, double, CobwebNode*> >();
-            auto repr = std::list<
+            auto description = std::list<
                 std::tuple<std::string, double>>();
 
+            // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
+            auto heuristic_fn = [](const int heuristic, const AV_COUNT_TYPE &instance, CobwebNode* curr){
+                double alpha = curr->tree->alpha;
+                switch (heuristic){
+                    case 0: case 1:
+                        return curr->log_prob_instance(instance);
+                    case 2: // KL divergence
+                    case 4: // Total variation distance
+                    case 5: // Hellinger distance
+                    case 6: // Bhattacharyya distance
+                    {
+                        double distance = 0.;
+                        for (auto &[attr, vAttr]: instance) {
+                            if (attr.is_hidden() || !curr->tree->attr_vals.count(attr)) continue;
+                            
+                            double num_vals = curr->tree->attr_vals.at(attr).size();
+                            COUNT_TYPE P_a = num_vals * alpha;
+                            for (auto &[val, proba]: vAttr) P_a += proba;
+                            COUNT_TYPE Q_a = num_vals * alpha;
+                            if (curr->a_count.count(attr)) Q_a += curr->a_count.at(attr);
+                            if (heuristic == 4) distance += Q_a;
+                            
+                            double attr_distance = 0.;
+                            for (auto &[val, proba]: vAttr) {
+                                COUNT_TYPE Q_av = alpha;
+                                if (curr->a_count.count(attr) && curr->av_count.at(attr).count(val)) 
+                                    Q_av += curr->av_count.at(attr).at(val);
+                                COUNT_TYPE P_av = alpha + proba;
+                                if (heuristic == 2)
+                                    distance += P_av / P_a * ((log(P_av) - log(P_a)) - (log(Q_av) - log(Q_a)));
+                                if (heuristic == 4){
+                                    distance -= (Q_av / Q_a);
+                                    distance += abs(P_av / P_a - Q_av / Q_a);
+                                }
+                                if (heuristic == 5 || heuristic == 6){
+                                    attr_distance += sqrt(P_av / P_a * Q_av / Q_a);
+                                }
+                            }
+                            if (heuristic == 5) distance += sqrt(1 - attr_distance);
+                            if (heuristic == 6) distance += -log(attr_distance);
+                        }
+                        if (heuristic == 4) distance /= 2;
+                        return exp(-distance);
+                    }
+                    case 3: // JS divergence, too expensive to compute
+                        return 0.0;
+                    case 7: // Cosine similarity, too expensive to compute
+                        return 0.0;
+                    case 8: // Mean squared error, too expensive to compute
+                        return 0.0;
+                }
+            };
+            double root_ll_inst = heuristic_fn(heuristic, instance, this->root);
             queue.push(std::make_tuple(root_ll_inst, 0.0, this->root));
+            // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
             
             while (queue.size() > 0){
                 auto node = queue.top();
                 queue.pop();
                 nodes_expanded += 1;
-
-                if (greedy){
-                    queue = std::priority_queue<
-                        std::tuple<double, double, CobwebNode*>>();
-                }
 
                 auto curr_score = std::get<0>(node);
                 auto curr_ll = std::get<1>(node);
@@ -856,7 +892,8 @@ class CobwebTree {
                 }
                 
                 // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-                repr.push_back(std::make_tuple(curr->concept_hash(), exp(curr_score)));
+                if (heuristic <= 1) curr_score = exp(curr_score);
+                description.push_back(std::make_tuple(curr->concept_hash(), curr_score));
                 // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
 
                 if (nodes_expanded >= max_nodes) break;
@@ -864,22 +901,12 @@ class CobwebTree {
                 std::vector<double> log_children_probs = curr->log_prob_children_given_instance(instance);
                 for (size_t i = 0; i < curr->children.size(); ++i) {
                     auto child = curr->children[i];
-                    double child_ll_inst = 0;
-                    if (missing){
-                        child_ll_inst = child->log_prob_instance_missing(instance);
-                    } else {
-                        child_ll_inst = child->log_prob_instance(instance);
-                        // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-                        //if (category_validity_only) child_ll_inst -= child->log_prob_instance(child->av_count);
-                        // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-                    }
                     auto child_ll_given_parent = log_children_probs[i];
                     auto child_ll = child_ll_given_parent + curr_ll;
+                    
                     // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
-                    if (category_validity_only) 
-                        queue.push(std::make_tuple(child_ll_inst, child_ll, child));
-                    else
-                        queue.push(std::make_tuple(child_ll_inst + child_ll, child_ll, child));
+                    double child_ll_inst = heuristic_fn(heuristic, instance, child);
+                    queue.push(std::make_tuple(child_ll_inst + child_ll * (heuristic == 0 ? 1 : 0), child_ll, child));
                     // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
                 }
             }
@@ -890,30 +917,38 @@ class CobwebTree {
                 }
             }
             
-            return std::make_tuple(out, repr);
+            return std::make_tuple(out, description);
         }
 
         /**
-         * Return nodes found in multi-node prediction as a representation of the instance.
+         * Return nodes found in multi-node prediction with their corresponding weight (calculated via heuristics) as a description of the instance under such representation system. Best-first search is guided by maximizing the heuristic.
          *
          * @param instance The instance to be represented.
          * @param max_nodes The maximum number of nodes to be searched.
-         * @param greedy Whether to use a greedy search.
-         * @param missing @TODO
+         * @param heuristic An integer indicating which heuristic to use. Distance d will be converted to similarity via exp(-d).
+         * - 0: (Default) Use collocation score (log_prob_instance + log_prob_class_given_instance) as the heuristic.
+         * - 1: (log_prob_instance) Use the probability of the instance given the node concept, ignoring the multinomial (permutation) coefficient.
+         * - 2: KL divergence
+         * - 3: JS divergence (Too expensive. Not implemented.)
+         * - 4: Total variation distance
+         * - 5: Hellinger distance
+         * - 6: Bhattacharyya distance
+         * - 7: Cosine similarity (Too expensive. Not implemented.)
+         * - 8: Mean squared error (Too expensive. Not implemented.)
          * @return What will be returned in predict_probs_mixture, as well as a list< tuple< CobwebNode node id, its **raw** collocation score without normalization> >
          */
         std::tuple<
             std::unordered_map< std::string, std::unordered_map<std::string, double> >
             ,
             std::list< std::tuple<std::string, double> > 
-        > obtain_representation_mixture(INSTANCE_TYPE instance, int max_nodes, bool greedy, bool missing, bool category_validity_only){
+        > obtain_description(INSTANCE_TYPE instance, int max_nodes, int heuristic = 0){
             AV_COUNT_TYPE cached_instance;
             for (auto &[attr, val_map]: instance) {
                 for (auto &[val, cnt]: val_map) {
                     cached_instance[CachedString(attr)][CachedString(val)] = instance.at(attr).at(val);
                 }
             }
-            return this->obtain_representation_helper(cached_instance, 0.0, max_nodes, greedy, missing, category_validity_only);
+            return this->obtain_description_helper(cached_instance, 0.0, max_nodes, heuristic);
         }
 };
 
@@ -2363,6 +2398,52 @@ inline double CobwebNode::log_prob_class_given_instance(const AV_COUNT_TYPE &ins
     return log_prob;
 }
 
+
+//inline double CobwebNode::tvd_of_instance(const AV_COUNT_TYPE &instance){
+//    /**
+//     * This is the total variation distance between the "instance" and the concept.
+//    */
+
+//    double distance = 0;
+
+//    for (auto &[attr, vAttr]: instance) {
+//        bool hidden = attr.is_hidden();
+//        if (hidden || !this->tree->attr_vals.count(attr)){
+//            continue;
+//        }
+
+//        double num_vals = this->tree->attr_vals.at(attr).size();
+
+//        for (auto &[val, cnt]: vAttr){
+//            if (!this->tree->attr_vals.at(attr).count(val)){
+//                continue;
+//            }
+
+//            double alpha = this->tree->alpha;
+//            double av_count = alpha;
+//            if (this->av_count.count(attr) && this->av_count.at(attr).count(val)){
+//                av_count += this->av_count.at(attr).at(val);
+//            }
+
+//            // a_count starts with the alphas over all values (even vals not in
+//            // current node)
+//            COUNT_TYPE a_count = num_vals * alpha;
+//            if (this->a_count.count(attr)){
+//                a_count += this->a_count.at(attr);
+//            }
+
+//            // we use cnt here to weight accuracy by counts in the training
+//            // instance. Usually this is 1, but in  models, it might
+//            // be something else.
+//            log_prob += cnt * (log(av_count) - log(a_count));
+
+//        }
+
+//    }
+
+//    return log_prob;
+//}
+
 inline double CobwebNode::log_prob_instance_ext(INSTANCE_TYPE instance){
     AV_COUNT_TYPE cached_instance;
     for (auto &[attr, val_map]: instance) {
@@ -2573,7 +2654,7 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
                     py::arg("instance") = std::vector<AV_COUNT_TYPE>(),
                     // py::arg("get_best_concept") = false,
                     py::return_value_policy::reference)
-            .def("obtain_representation", &CobwebTree::obtain_representation_mixture)
+            .def("obtain_description", &CobwebTree::obtain_description)
             .def("predict_probs", &CobwebTree::predict_probs_mixture)
             .def("predict_probs_parallel", &CobwebTree::predict_probs_mixture_parallel)
             .def("clear", &CobwebTree::clear)
