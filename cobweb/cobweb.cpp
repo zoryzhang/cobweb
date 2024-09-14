@@ -28,6 +28,9 @@ namespace pybind11 {
 #else
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/complex.h>
+#include <pybind11/functional.h>
+#include <pybind11/chrono.h>
 #endif
 
 namespace py = pybind11;
@@ -315,6 +318,10 @@ class CobwebTree {
             this->root = new CobwebNode();
             this->root->tree = this;
             this->attr_vals = AV_KEY_TYPE();
+        }
+        
+        void set_seed(int seed) {
+            gen.seed(seed);
         }
 
         std::string __str__(){
@@ -2661,6 +2668,7 @@ inline double CobwebNode::log_prob_instance_missing(const AV_COUNT_TYPE &instanc
             .def("__str__", &CobwebTree::__str__)
             .def("dump_json", &CobwebTree::dump_json)
             .def("load_json", &CobwebTree::load_json)
+            .def("set_seed", &CobwebTree::set_seed)
             .def_readonly("root", &CobwebTree::root, py::return_value_policy::reference);
     }
 #endif
