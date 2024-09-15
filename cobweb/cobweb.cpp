@@ -2046,6 +2046,9 @@ inline std::string CobwebNode::sum_square_to_json() {
         ret += "\"" + attr.get_string() + "\": " + doubleToString(cnt);
         // std::to_string(cnt);
     }
+
+    ret += "}";
+    return ret;
 }
 
 inline std::string CobwebNode::dump_json() {
@@ -2705,6 +2708,8 @@ double heuristic_fn(const int heuristic, const AV_COUNT_TYPE &instance, CobwebNo
                     if (curr->av_count.at(attr).count(val))
                         dot_product += P_av * curr->av_count.at(attr).at(val);
                 }
+                assert (P_sum_square > 1e-10);
+                if (Q_sum_square < 1e-10) return 0.;
                 similarity *= dot_product / sqrt(P_sum_square) / sqrt(Q_sum_square);
             }
             return similarity;
