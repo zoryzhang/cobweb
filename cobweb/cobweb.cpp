@@ -228,6 +228,7 @@ class CobwebNode {
         COUNT_TYPE count;
         ATTR_COUNT_TYPE a_count;
         ATTR_COUNT_TYPE sum_n_logn;
+        ATTR_COUNT_TYPE sum_square;
         AV_COUNT_TYPE av_count;
 
         CobwebNode();
@@ -282,6 +283,7 @@ class CobwebNode {
         std::string ser_avcounts();
         std::string a_count_to_json();
         std::string sum_n_logn_to_json();
+        std::string sum_square_to_json();
         std::string dump_json();
         std::string output_json();
         std::string output_json_w_heuristics(AV_COUNT_TYPE &instance, int heuristic);
@@ -375,9 +377,23 @@ class CobwebTree {
                 new_node->sum_n_logn[attr_name] = count_value;
                 sum_n_logn_cursor = sum_n_logn_cursor->next;
             }
+            
+            // Get sum_square
+            struct json_object_element_s* sum_square_obj = sum_n_logn_obj->next;
+            struct json_object_s* sum_square_dict = json_value_as_object(sum_square_obj->value);
+            struct json_object_element_s* sum_square_cursor = sum_square_dict->start;
+            while(sum_square_cursor != NULL) {
+                // Get attr name
+                std::string attr_name = std::string(sum_square_cursor->name->string);
+
+                // A count is stored with each attribute
+                double count_value = atof(json_value_as_number(sum_square_cursor->value)->number);
+                new_node->sum_square[attr_name] = count_value;
+                sum_square_cursor = sum_square_cursor->next;
+            }
 
             // Get av counts
-            struct json_object_element_s* av_count_obj = sum_n_logn_obj->next;
+            struct json_object_element_s* av_count_obj = sum_square_obj->next;
             struct json_object_s* av_count_dict = json_value_as_object(av_count_obj->value);
             struct json_object_element_s* av_count_cursor = av_count_dict->start;
             while(av_count_cursor != NULL) {
@@ -914,6 +930,7 @@ class CobwebTree {
 inline CobwebNode::CobwebNode() {
     count = 0;
     sum_n_logn = ATTR_COUNT_TYPE();
+    sum_square = ATTR_COUNT_TYPE();
     a_count = ATTR_COUNT_TYPE();
     parent = nullptr;
     tree = nullptr;
@@ -922,6 +939,7 @@ inline CobwebNode::CobwebNode() {
 inline CobwebNode::CobwebNode(CobwebNode *otherNode) {
     count = 0;
     sum_n_logn = ATTR_COUNT_TYPE();
+    sum_square = ATTR_COUNT_TYPE();
     a_count = ATTR_COUNT_TYPE();
 
     parent = otherNode->parent;
@@ -945,6 +963,7 @@ inline void CobwebNode::increment_counts(const AV_COUNT_TYPE &instance) {
                 if(this->av_count.count(attr) && this->av_count.at(attr).count(val)){
                     double tf = this->av_count.at(attr).at(val) + this->tree->alpha;
                     this->sum_n_logn[attr] -= tf * log(tf);
+                    this->sum_square[attr] -= tf * tf;
                 }
             }
 
@@ -953,6 +972,7 @@ inline void CobwebNode::increment_counts(const AV_COUNT_TYPE &instance) {
             if (!attr.is_hidden()){
                 double tf = this->av_count.at(attr).at(val) + this->tree->alpha;
                 this->sum_n_logn[attr] += tf * log(tf);
+                this->sum_square[attr] += tf * tf;
                 // std::cout << "av_count for [" << attr.get_string() << "] = [" << val.get_string() << "]: " << this->av_count[attr][val] << std::endl;
                 // std::cout << "updated sum nlogn for [" << attr.get_string() << "]: " << this->sum_n_logn[attr] << std::endl;
             }
@@ -971,6 +991,7 @@ inline void CobwebNode::update_counts_from_node(CobwebNode *node) {
                 if(this->av_count.count(attr) && this->av_count.at(attr).count(val)){
                     double tf = this->av_count.at(attr).at(val) + this->tree->alpha;
                     this->sum_n_logn[attr] -= tf * log(tf);
+                    this->sum_square[attr] -= tf * tf;
                 }
             }
 
@@ -979,6 +1000,7 @@ inline void CobwebNode::update_counts_from_node(CobwebNode *node) {
             if (!attr.is_hidden()){
                 double tf = this->av_count.at(attr).at(val) + this->tree->alpha;
                 this->sum_n_logn[attr] += tf * log(tf);
+                this->sum_square[attr] += tf * tf;
             }
         }
     }
@@ -2014,6 +2036,18 @@ inline std::string CobwebNode::sum_n_logn_to_json() {
     return ret;
 }
 
+inline std::string CobwebNode::sum_square_to_json() {
+    std::string ret = "{";
+    
+    bool first = true;
+    for (auto &[attr, cnt]: this->sum_square) {
+        if (!first) ret += ",\n";
+        else first = false;
+        ret += "\"" + attr.get_string() + "\": " + doubleToString(cnt);
+        // std::to_string(cnt);
+    }
+}
+
 inline std::string CobwebNode::dump_json() {
     std::string output = "{";
 
@@ -2021,6 +2055,7 @@ inline std::string CobwebNode::dump_json() {
     output += "\"count\": " + doubleToString(this->count) + ",\n";
     output += "\"a_count\": " + this->a_count_to_json() + ",\n";
     output += "\"sum_n_logn\": " + this->sum_n_logn_to_json() + ",\n";
+    output += "\"sum_square\": " + this->sum_square_to_json() + ",\n";
     output += "\"av_count\": " + this->ser_avcounts() + ",\n";
 
     output += "\"children\": [\n";
@@ -2655,10 +2690,45 @@ double heuristic_fn(const int heuristic, const AV_COUNT_TYPE &instance, CobwebNo
         }
         case 3: // JS divergence, too expensive to compute
             return 0.0;
-        case 7: // Cosine similarity, too expensive to compute
-            return 0.0;
-        case 8: // Mean squared error, too expensive to compute
-            return 0.0;
+        case 7: // Cosine similarity
+        {
+            double similarity = 1.;
+            for (auto &[attr, vAttr]: instance) {
+                if (attr.is_hidden() || !curr->tree->attr_vals.count(attr)) continue;
+                if (!curr->a_count.count(attr)) return 0.;
+                
+                double dot_product = 0., P_sum_square = 0., Q_sum_square = curr->sum_square.at(attr);
+                for (auto &[val, proba]: vAttr) {
+                    COUNT_TYPE P_av = proba;
+                    P_sum_square += P_av * P_av;
+                    
+                    if (curr->av_count.at(attr).count(val))
+                        dot_product += P_av * curr->av_count.at(attr).at(val);
+                }
+                similarity *= dot_product / sqrt(P_sum_square) / sqrt(Q_sum_square);
+            }
+            return similarity;
+        }
+        case 8: // Mean squared error
+        {
+            double similarity = 1.;
+            for (auto &[attr, vAttr]: instance) {
+                if (attr.is_hidden() || !curr->tree->attr_vals.count(attr)) continue;
+                if (curr->a_count.count(attr) == 0) return 0.;
+                
+                double mse = curr->sum_square.at(attr);
+                for (auto &[val, proba]: vAttr) {
+                    COUNT_TYPE Q_av = 0;
+                    if (curr->a_count.count(attr) && curr->av_count.at(attr).count(val)) 
+                        Q_av = curr->av_count.at(attr).at(val);
+                        mse -= Q_av * Q_av;
+                    COUNT_TYPE P_av = proba;
+                    mse += (P_av - Q_av) * (P_av - Q_av);
+                }
+                similarity *= 1. / (1. + (mse / curr->tree->attr_vals.count(attr)));
+            }
+            return similarity;
+        }
     }
 }
 
