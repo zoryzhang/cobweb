@@ -908,8 +908,8 @@ class CobwebTree {
          * - 4: Total variation distance
          * - 5: Hellinger distance
          * - 6: Bhattacharyya distance
-         * - 7: Cosine similarity (Too expensive. Not implemented.)
-         * - 8: Mean squared error (Too expensive. Not implemented.)
+         * - 7: Cosine similarity
+         * - 8: Mean squared error
          * @return What will be returned in predict_probs_mixture, as well as a list< tuple< CobwebNode node id, its **raw** collocation score without normalization> >
          */
         std::tuple<
