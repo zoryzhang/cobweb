@@ -821,9 +821,8 @@ class CobwebTree {
         }
 
         std::tuple<
-            std::unordered_map< std::string, std::unordered_map<std::string, double> >
-            ,
-            std::list< std::tuple<std::string, double> > 
+            std::unordered_map< std::string, std::unordered_map<std::string, double> >,
+            std::unordered_map< std::string, double >
         > obtain_description_helper(const AV_COUNT_TYPE &instance, double ll_path, int max_nodes, int heuristic){
             std::unordered_map<std::string, std::unordered_map<std::string, double>> out;
             int nodes_expanded = 0;
@@ -831,8 +830,7 @@ class CobwebTree {
             bool first_weight = true;
             auto queue = std::priority_queue<
                 std::tuple<double, double, CobwebNode*> >();
-            auto description = std::list<
-                std::tuple<std::string, double>>();
+            auto description = std::unordered_map< std::string, double >();
 
             // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
             double root_ll_inst = heuristic_fn(heuristic, instance, this->root);
@@ -868,7 +866,7 @@ class CobwebTree {
                 
                 // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
                 if (heuristic <= 1) curr_score = exp(curr_score);
-                description.push_back(std::make_tuple(curr->concept_hash(), curr_score));
+                description[curr->concept_hash()] = curr_score;
                 // ############ ONLY DIFFERENCE FROM predict_probs_mixture_helper ############
 
                 if (nodes_expanded >= max_nodes) break;
@@ -913,9 +911,8 @@ class CobwebTree {
          * @return What will be returned in predict_probs_mixture, as well as a list< tuple< CobwebNode node id, its **raw** collocation score without normalization> >
          */
         std::tuple<
-            std::unordered_map< std::string, std::unordered_map<std::string, double> >
-            ,
-            std::list< std::tuple<std::string, double> > 
+            std::unordered_map< std::string, std::unordered_map<std::string, double> >,
+            std::unordered_map< std::string, double >
         > obtain_description(INSTANCE_TYPE instance, int max_nodes, int heuristic = 0){
             AV_COUNT_TYPE cached_instance;
             for (auto &[attr, val_map]: instance) {
