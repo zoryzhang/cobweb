@@ -41,5 +41,5 @@ setup(
     cmdclass={"build_ext": build_ext},
     zip_safe=False,
     python_requires=">=3.7",
-    install_requires=["pybind11", "torch", "torchvision", "numpy", "pandas", "scikit-learn", "tqdm", "matplotlib", "nltk", "spacy"],
+    install_requires=["pybind11", "torch", "torchvision", "numpy", "pandas", "scikit-learn", "tqdm", "matplotlib", "nltk", "spacy", "munkres", "py_search"],
 )
