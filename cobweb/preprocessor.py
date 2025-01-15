@@ -19,7 +19,7 @@ run in the following order:
    relations to preserve semantics.
 #. :class:`Flattener` - Flattens component instances into a number of tuples
    (i.e. ``(attr,component)``) for faster hashing and access.
-#. :class:`StructureMapper<concept_formation.structure_mapper.StructureMapper>`
+#. :class:`StructureMapper<cobweb.structure_mapper.StructureMapper>`
     - Gives any variables unique names so they can be renamed in matching
     without colliding, and matches instances to the root concept.
 
@@ -205,7 +205,7 @@ class Tuplizer(Preprocessor):
 
     This is a helper function preprocessor and so is not part of
     :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard pipeline.
+    <cobweb.structure_mapper.StructureMapper>`'s standard pipeline.
 
     >>> tuplizer = Tuplizer()
     >>> instance = {'(foo1 o1 (foo2 o2 o3))': True}
@@ -344,7 +344,7 @@ class NameStandardizer(Preprocessor):
     allow for a search between possible mappings without collisions.
 
     This is the first operation in :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard
+    <cobweb.structure_mapper.StructureMapper>`'s standard
     pipeline.
 
     :param gensym: a function that returns unique object names (str) on each
@@ -550,7 +550,7 @@ class Flattener(Preprocessor):
     element, this is more efficient for later processing.
 
     This is the third and final operation in :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard
+    <cobweb.structure_mapper.StructureMapper>`'s standard
     pipeline.
 
     >>> import pprint
@@ -734,7 +734,7 @@ class ListProcessor(Preprocessor):
     understanding of component objects.
 
     None of the list operations are part of :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard
+    <cobweb.structure_mapper.StructureMapper>`'s standard
     pipeline.
 
     .. warning:: The ListProcessor's undo_transform function is not
@@ -879,9 +879,9 @@ class ExtractListElements(Preprocessor):
     subjects of the main instance.
 
     This is a first subprocess of the :class:`ListProcessor
-    <concept_formation.preprocessor.ListProcessor>`. None of the list
+    <cobweb.preprocessor.ListProcessor>`. None of the list
     operations are part of :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard pipeline.
+    <cobweb.structure_mapper.StructureMapper>`'s standard pipeline.
 
     # Reset the symbol generator for doctesting purposes.
     >>> _reset_gensym()
@@ -1012,9 +1012,9 @@ class ListsToRelations(Preprocessor):
     relations.
 
     This is a second subprocess of the :class:`ListProcessor
-    <concept_formation.preprocessor.ListProcessor>`. None of the list
+    <cobweb.preprocessor.ListProcessor>`. None of the list
     operations are part of :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard pipeline.
+    <cobweb.structure_mapper.StructureMapper>`'s standard pipeline.
 
     # Reset the symbol generator for doctesting purposes.
     >>> _reset_gensym()
@@ -1212,11 +1212,11 @@ class SubComponentProcessor(Preprocessor):
     structure mapper to partially match against subobjects.
 
     This is the second operation in :class:`TrestleTree
-    <concept_formation.trestle.TrestleTree>`'s standard pipeline (after
+    <cobweb.trestle.TrestleTree>`'s standard pipeline (after
     flattening).
 
     .. warning:: This assumes that the :class:`NameStandardizer
-        <concept_formation.preprocessor.NameStandardizer>` has been run on the
+        <cobweb.preprocessor.NameStandardizer>` has been run on the
         instance first otherwise there can be name collisions.
 
     # Reset the symbol generator for doctesting purposes.
@@ -1368,7 +1368,7 @@ class ObjectVariablizer(OneWayPreprocessor):
 
     This is a helper function preprocessor and so is not part of
     :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard pipeline.
+    <cobweb.structure_mapper.StructureMapper>`'s standard pipeline.
 
     >>> from pprint import pprint
     >>> instance = {"ob1": {"myX": 12.4, "myY": 13.1, "myType": "square"},
@@ -1447,8 +1447,8 @@ class NumericToNominal(OneWayPreprocessor):
     """
     Converts numeric values to nominal ones.
 
-    :class:`Cobweb3 <concept_formation.cobweb3.Cobweb3Tree>` and
-    :class:`Trestle <concept_formation.trestle.TrestleTree>` will treat
+    :class:`Cobweb3 <cobweb.cobweb3.Cobweb3Tree>` and
+    :class:`Trestle <cobweb.trestle.TrestleTree>` will treat
     anything that passes ``isinstance(instance[attr],Number)`` as a numerical
     value. Because of how they store numerical distribution information, If
     either algorithm encounts a numerical value where it previously saw a
@@ -1458,7 +1458,7 @@ class NumericToNominal(OneWayPreprocessor):
 
     This is a helper function preprocessor and so is not part of
     :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard pipeline.
+    <cobweb.structure_mapper.StructureMapper>`'s standard pipeline.
 
     >>> import pprint
     >>> ntn = NumericToNominal()
@@ -1509,8 +1509,8 @@ class NominalToNumeric(OneWayPreprocessor):
     """
     Converts nominal values to numeric ones.
 
-    :class:`Cobweb3 <concept_formation.cobweb3.Cobweb3Tree>` and
-    :class:`Trestle <concept_formation.trestle.TrestleTree>` will treat
+    :class:`Cobweb3 <cobweb.cobweb3.Cobweb3Tree>` and
+    :class:`Trestle <cobweb.trestle.TrestleTree>` will treat
     anything that passes ``isinstance(instance[attr],Number)`` as a numerical
     value. Because of how they store numerical distribution information, If
     either algorithm encounts a numerical value where it previously saw a
@@ -1531,7 +1531,7 @@ class NominalToNumeric(OneWayPreprocessor):
 
     This is a helper function preprocessor and so is not part of
     :class:`StructureMapper
-    <concept_formation.structure_mapper.StructureMapper>`'s standard pipeline.
+    <cobweb.structure_mapper.StructureMapper>`'s standard pipeline.
 
     >>> import pprint
     >>> ntn = NominalToNumeric()

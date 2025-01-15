@@ -1,11 +1,11 @@
 """
 This module contains the
-:class:`StructureMapper<concept_formation.structure_mapper.StructureMapper>`
+:class:`StructureMapper<cobweb.structure_mapper.StructureMapper>`
 class which is used rename variable attributes it improve the category utility
 on instances.
 
 It is an instance of a
-:class:`preprocessor<concept_formation.preprocessor.Preprocessor>` with a
+:class:`preprocessor<cobweb.preprocessor.Preprocessor>` with a
 :func:`transform` and :func:`undo_tranform` methods.
 """
 from __future__ import print_function

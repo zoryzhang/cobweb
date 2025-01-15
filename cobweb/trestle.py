@@ -1,10 +1,10 @@
 """
-This is a quick adaption of https://github.com/cmaclell/concept_formation
+This is a quick adaption of https://github.com/cmaclell/cobweb
 """
 
 from pprint import pprint
 
-from cobweb.cobweb import CobwebNode, CobwebTree
+from cobweb.cobweb import CobwebTree
 from cobweb.structure_mapper import StructureMapper
 from cobweb.preprocessor import SubComponentProcessor, Flattener, Pipeline, NameStandardizer
 
@@ -80,28 +80,6 @@ class TrestleTree(CobwebTree):
             if isinstance(v, tuple):
                 self._sanity_check_relation(v, instance)
 
-    def ifit(self, instance):
-        """
-        Incrementally fit a new instance into the tree and return its resulting
-        concept.
-
-        The instance is passed down the tree and updates each node to
-        incorporate the instance. **This modifies the tree's knowledge** for a
-        non-modifying version see: :meth:`TrestleTree.categorize`.
-
-        This version is modified from the normal :meth:`CobwebTree.ifit
-        <concept_formation.cobweb.CobwebTree.ifit>` by first structure mapping
-        the instance before fitting it into the knoweldge base.
-
-        :param instance: an instance to be categorized into the tree.
-        :type instance: :ref:`Instance<instance-rep>`
-        :return: A concept describing the instance
-        :rtype: Cobweb3Node
-
-        .. seealso:: :meth:`TrestleTree.trestle`
-        """
-        return self.trestle(instance)
-
     def _trestle_categorize(self, instance):
         """
         The structure maps the instance, categorizes the matched instance, and
@@ -168,10 +146,8 @@ class TrestleTree(CobwebTree):
         not modify the tree's knowledge base** for a modifying version see
         :meth:`TrestleTree.ifit`
 
-        This version differs fomr the normal :meth:`CobwebTree.categorize
-        <concept_formation.cobweb.CobwebTree.categorize>` and
-        :meth:`Cobweb3Tree.categorize
-        <concept_formation.cobweb3.Cobweb3Tree.categorize>` by structure
+        This version differs from the normal :meth:`CobwebTree.categorize
+        <cobweb.cobweb.CobwebTree.categorize>` by structure
         mapping instances before categorizing them.
 
         :param instance: an instance to be categorized into the tree.
@@ -183,15 +159,20 @@ class TrestleTree(CobwebTree):
         """
         return self._trestle_categorize(instance)
 
-    def trestle(self, instance):
+    def ifit(self, instance):
         """
-        The core trestle algorithm used in fitting and categorization.
+        Incrementally fit a new instance into the tree and return its resulting
+        concept.
+        
+        The instance is passed down the tree and updates each node to
+        incorporate the instance. **This modifies the tree's knowledge** for a
+        non-modifying version see: :meth:`TrestleTree.categorize`.
 
-        This function is similar to :meth:`Cobweb.cobweb
-        <concept_formation.cobweb.CobwebTree.cobweb>` The key difference
+        This function is similar to :meth:`Cobweb.ifit
+        <cobweb.cobweb.CobwebTree.ifit>` The key difference
         between trestle and cobweb is that trestle performs structure mapping
         (see: :meth:`structure_map
-        <concept_formation.structure_mapper.StructureMapper.transform>`) before
+        <cobweb.structure_mapper.StructureMapper.transform>`) before
         proceeding through the normal cobweb algorithm.
 
         :param instance: an instance to be categorized into the tree.
@@ -199,10 +180,15 @@ class TrestleTree(CobwebTree):
         :return: A concept describing the instance
         :rtype: CobwebNode
         """
-        preprocessing = Pipeline(NameStandardizer(self.gensym),
-                                 Flattener(), SubComponentProcessor(),
-                                 StructureMapper(self.root))
+        preprocessing = Pipeline(
+            NameStandardizer(self.gensym),
+            Flattener(), 
+            SubComponentProcessor(),
+            StructureMapper(self.root),
+        )
         temp_instance = preprocessing.transform(instance)
         self._sanity_check_instance(temp_instance)
         pprint(temp_instance)
-        return super(TrestleTree, self).cobweb(temp_instance)
+        #pprint(type(super()))
+        #pprint(super())
+        return super().ifit(temp_instance)

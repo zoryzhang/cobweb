@@ -30,6 +30,7 @@ def random_instance(num_objects=5, num_sub_objects=3, num_attributes=2):
 
 def random_concept(num_instances=1, **kwargs):
     tree = TrestleTree(alpha=1e-6, weight_attr=False, objective=0, children_norm=True, norm_attributes=False)
+    pprint(tree.__dict__)
     for i in range(num_instances):
         print("Training concept with instance", i+1)
         inst = random_instance(**kwargs)
